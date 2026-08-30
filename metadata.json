@@ -1,0 +1,6 @@
+{
+  "name": "域外法学信息聚合平台",
+  "description": "面向法学研究者与实务专家的域外核心法学文献流、权威法学评论期刊架、国际学术活动与征稿DDL倒计时追踪平台。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
