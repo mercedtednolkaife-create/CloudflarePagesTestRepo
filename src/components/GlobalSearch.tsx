@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, RefreshCw, Layers, Sparkles, FileText, BookMarked, HeartHandshake, ArrowRight } from 'lucide-react';
+import {
+  Search,
+  X,
+  RefreshCw,
+  Layers,
+  Sparkles,
+  FileText,
+  BookMarked,
+  HeartHandshake,
+  CornerDownLeft,
+  Loader2,
+} from 'lucide-react';
 import { TOPIC_TAGS, JURISDICTIONS } from '../data/mockData';
 import { JurisdictionType, GlobalSearchResult } from '../types';
 import { fetchGlobalSearch } from '../services/api';
@@ -27,37 +38,61 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
   onClearAll,
   onSelectSearchResult,
 }) => {
+  // Local input state - only committed on Enter or Search Button Click
+  const [localSearchText, setLocalSearchText] = useState<string>(searchQuery);
   const [ftsResults, setFtsResults] = useState<GlobalSearchResult[]>([]);
-  const [isSearchingFts, setIsSearchingFts] = useState(false);
-  const [showFtsDropdown, setShowFtsDropdown] = useState(false);
+  const [isSearchingFts, setIsSearchingFts] = useState<boolean>(false);
+  const [showFtsDropdown, setShowFtsDropdown] = useState<boolean>(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sync with external reset
+  useEffect(() => {
+    setLocalSearchText(searchQuery);
+    if (!searchQuery) {
+      setFtsResults([]);
+      setShowFtsDropdown(false);
+    }
+  }, [searchQuery]);
 
   const hasActiveFilters =
     searchQuery.trim() !== '' || selectedTag !== '全部领域' || selectedJurisdiction !== 'All';
 
-  // Live FTS5 Trigram Search Query with debounce
-  useEffect(() => {
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+  // Explicit Search Trigger on Enter or Button Click
+  const handlePerformSearch = async () => {
+    const trimmed = localSearchText.trim();
+    setSearchQuery(trimmed);
+
+    if (!trimmed) {
       setFtsResults([]);
       setShowFtsDropdown(false);
       return;
     }
 
-    const timer = setTimeout(async () => {
-      setIsSearchingFts(true);
-      try {
-        const results = await fetchGlobalSearch(searchQuery.trim());
-        setFtsResults(results);
-        setShowFtsDropdown(results.length > 0);
-      } catch (err) {
-        console.error('FTS search error:', err);
-      } finally {
-        setIsSearchingFts(false);
-      }
-    }, 250);
+    setIsSearchingFts(true);
+    try {
+      const results = await fetchGlobalSearch(trimmed);
+      setFtsResults(results);
+      setShowFtsDropdown(results.length > 0);
+    } catch (err) {
+      console.error('FTS search error:', err);
+    } finally {
+      setIsSearchingFts(false);
+    }
+  };
 
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handlePerformSearch();
+    }
+  };
+
+  const handleClear = () => {
+    setLocalSearchText('');
+    setSearchQuery('');
+    setFtsResults([]);
+    setShowFtsDropdown(false);
+  };
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -75,8 +110,11 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
   const getEntityIcon = (type: string) => {
     switch (type) {
+      case 'paper':
       case 'article':
         return <FileText className="w-3.5 h-3.5 text-blue-600" />;
+      case 'author':
+        return <Sparkles className="w-3.5 h-3.5 text-indigo-600" />;
       case 'journal':
         return <BookMarked className="w-3.5 h-3.5 text-amber-600" />;
       case 'wishlist':
@@ -88,8 +126,11 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
   const getEntityLabel = (type: string) => {
     switch (type) {
+      case 'paper':
       case 'article':
         return '文献';
+      case 'author':
+        return '学者';
       case 'journal':
         return '期刊';
       case 'wishlist':
@@ -106,40 +147,55 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
           {/* Search Input Box */}
           <div className="relative flex-1 group" ref={searchContainerRef}>
-            <div className="relative flex items-center bg-zinc-50 hover:bg-white rounded-md border border-zinc-200 focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0F52BA]/10 shadow-2xs transition-all">
+            <div className="relative flex items-center bg-zinc-50 hover:bg-white rounded-xl border border-zinc-200 focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0F52BA]/10 shadow-xs transition-all">
               <div className="pl-3.5 pr-2 text-zinc-400">
-                <Search className="w-4 h-4 text-zinc-500" />
+                {isSearchingFts ? (
+                  <Loader2 className="w-4 h-4 text-[#0F52BA] animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4 text-zinc-500" />
+                )}
               </div>
               <input
                 id="global-search-input"
                 type="text"
-                value={searchQuery}
-                onFocus={() => {
-                  if (ftsResults.length > 0) setShowFtsDropdown(true);
-                }}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="检索全球法学文献、著者、DOI或裁判要旨 (如: Artificial Intelligence, 侵权, 宪法审查, GDPR...)"
-                className="w-full py-2.5 pr-10 text-sm text-[#09090B] placeholder-zinc-400 bg-transparent focus:outline-hidden font-sans"
+                value={localSearchText}
+                onKeyDown={handleKeyDown}
+                onChange={(e) => setLocalSearchText(e.target.value)}
+                placeholder="检索全球法学文献、著者、DOI或裁判要旨 (输入后按 Enter 或点击【检索】)..."
+                className="w-full py-2.5 pr-24 text-xs sm:text-sm text-[#09090B] placeholder-zinc-400 bg-transparent focus:outline-none font-sans"
               />
-              {searchQuery && (
+
+              {/* Action Buttons Inside Input */}
+              <div className="absolute right-2 flex items-center gap-1">
+                {localSearchText && (
+                  <button
+                    id="clear-search-btn"
+                    onClick={handleClear}
+                    className="p-1 rounded-md text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200 transition-colors cursor-pointer"
+                    title="清空搜索"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Confirm Search Button */}
                 <button
-                  id="clear-search-btn"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setShowFtsDropdown(false);
-                  }}
-                  className="absolute right-3 p-1 rounded-sm text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200 transition-colors"
-                  title="清空搜索"
+                  id="confirm-search-btn"
+                  onClick={handlePerformSearch}
+                  disabled={isSearchingFts}
+                  className="px-2.5 py-1 bg-zinc-900 hover:bg-[#0F52BA] text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                  title="按 Enter 或点击发起检索"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <span>检索</span>
+                  <CornerDownLeft className="w-3 h-3 opacity-70" />
                 </button>
-              )}
+              </div>
             </div>
 
             {/* FTS5 Trigram Dropdown Search Preview */}
             {showFtsDropdown && ftsResults.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-lg shadow-xl z-50 overflow-hidden divide-y divide-zinc-100 max-h-80 overflow-y-auto">
-                <div className="bg-zinc-50 px-3.5 py-1.5 flex items-center justify-between text-[11px] text-zinc-500 font-sans border-b border-zinc-100">
+              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-zinc-100 max-h-80 overflow-y-auto">
+                <div className="bg-zinc-50 px-3.5 py-2 flex items-center justify-between text-[11px] text-zinc-500 font-sans border-b border-zinc-100">
                   <span className="flex items-center gap-1 font-semibold text-zinc-700">
                     <Sparkles className="w-3.5 h-3.5 text-[#0F52BA]" />
                     Cloudflare D1 FTS5 全文索引命中 ({ftsResults.length})
@@ -178,15 +234,15 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
           </div>
 
           {/* Jurisdiction Segmented Toggle */}
-          <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-md border border-zinc-200 shrink-0 overflow-x-auto">
+          <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200 shrink-0 overflow-x-auto">
             {JURISDICTIONS.map((j) => (
               <button
                 key={j.id}
                 id={`jurisdiction-filter-${j.id}`}
                 onClick={() => setSelectedJurisdiction(j.id as JurisdictionType)}
-                className={`px-2.5 py-1 rounded-sm text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   selectedJurisdiction === j.id
-                    ? 'bg-white text-[#09090B] shadow-2xs font-bold'
+                    ? 'bg-white text-[#09090B] shadow-xs font-bold'
                     : 'text-zinc-600 hover:text-zinc-900'
                 }`}
               >
@@ -199,8 +255,13 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
           {hasActiveFilters && (
             <button
               id="clear-all-filters-btn"
-              onClick={onClearAll}
-              className="text-xs font-semibold text-zinc-600 hover:text-[#0F52BA] flex items-center justify-center gap-1.5 bg-zinc-50 hover:bg-zinc-100 px-3 py-2 rounded-md border border-zinc-200 transition-colors shrink-0"
+              onClick={() => {
+                setLocalSearchText('');
+                setShowFtsDropdown(false);
+                setFtsResults([]);
+                onClearAll();
+              }}
+              className="text-xs font-semibold text-zinc-600 hover:text-[#0F52BA] flex items-center justify-center gap-1.5 bg-zinc-50 hover:bg-zinc-100 px-3 py-2 rounded-xl border border-zinc-200 transition-colors shrink-0 cursor-pointer"
               title="重置所有筛选"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -222,7 +283,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
                 key={tag}
                 id={`topic-tag-btn-${tag}`}
                 onClick={() => setSelectedTag(tag)}
-                className={`px-2.5 py-1 rounded-sm text-xs font-medium whitespace-nowrap transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
                   selectedTag === tag
                     ? 'bg-[#0F52BA] text-white font-semibold'
                     : 'bg-zinc-50 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 border border-zinc-200/80'

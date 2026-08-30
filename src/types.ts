@@ -1,5 +1,96 @@
 export type JurisdictionType = 'US' | 'UK' | 'EU' | 'DE' | 'FR' | 'International' | 'All';
 
+export interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  success: boolean;
+  data: T[];
+  pagination: PaginationMeta;
+  total?: number;
+}
+
+export interface User {
+  id: string;
+  username: string;
+  role: 'admin' | 'scholar' | 'user';
+}
+
+export interface Institution {
+  id: string;
+  name: string;
+  domain: string | null;
+  country: string | null;
+  type: string | null;
+}
+
+export interface Author {
+  id: string;
+  name: string;
+  ssrnId: string | null;
+  ssrnUrl?: string | null;
+  institutionId: string | null;
+  institution: Institution | null;
+  tags: string[];
+  papersCount?: number;
+  papers?: { id: string; title: string; publishedAt: string; url: string }[];
+  isBookmarked?: boolean;
+}
+
+export interface PaperAuthorDetail {
+  id: string;
+  name: string;
+  ssrnId: string | null;
+  institution: string | null;
+}
+
+export interface Paper {
+  id: string;
+  title: string;
+  abstract: string;
+  journalId: string | null;
+  journalName: string;
+  journalNameCn?: string;
+  journalAbbr: string;
+  journalTier?: string;
+  journalColor?: string;
+  publishedAt: string;
+  url: string;
+  tags: string[];
+  authors: string[];
+  authorsDetail?: PaperAuthorDetail[];
+  isBookmarked?: boolean;
+}
+
+export interface BookmarkItem {
+  id: string;
+  user_id: string;
+  entity_type: 'paper' | 'author' | 'journal' | 'article' | 'event';
+  entity_id: string;
+  created_at: string;
+}
+
+export interface EventItem {
+  id: string;
+  title: string;
+  deadline: string; // YYYY-MM-DD
+  eventType: string;
+  hostId: string | null;
+  hostName: string;
+  hostCountry: string;
+  hostDomain: string;
+  daysRemaining: number;
+  isUrgent: boolean;
+  isExpired: boolean;
+  statusText: string;
+}
+
 export interface Article {
   id: string;
   titleCn: string;
@@ -26,7 +117,7 @@ export interface AcademicEvent {
   id: string;
   title: string;
   host: string;
-  type: '征文启事 (CFP)' | '国际研讨会' | '青年学者论坛' | '特刊征稿';
+  type: '征文启事 (CFP)' | '国际研讨会' | '青年学者论坛' | '特刊征稿' | string;
   deadline: string; // YYYY-MM-DD
   eventDate: string;
   location: string;
@@ -77,7 +168,7 @@ export interface WishlistItem {
 }
 
 export interface GlobalSearchResult {
-  entityType: 'article' | 'journal' | 'wishlist' | string;
+  entityType: 'article' | 'paper' | 'author' | 'journal' | 'wishlist' | string;
   entityId: string;
   titleHighlighted: string;
   contentHighlighted: string;
@@ -85,4 +176,4 @@ export interface GlobalSearchResult {
   rawContent: string;
 }
 
-export type NavTab = 'home' | 'journals' | 'wishlist' | 'events' | 'saved';
+export type NavTab = 'papers' | 'home' | 'journals' | 'authors' | 'events' | 'bookmarks' | 'saved' | 'wishlist' | 'login';
