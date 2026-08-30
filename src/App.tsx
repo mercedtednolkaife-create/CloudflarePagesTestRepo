@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Article,
   AcademicEvent,
   Journal,
   WishlistItem,
@@ -12,20 +11,18 @@ import {
   EventItem,
 } from './types';
 import {
-  fetchJournals,
   fetchWishlist,
   createWishlistItem,
   voteWishlistItem,
-  fetchArticles,
   fetchEvents,
-  fetchPapers,
-  fetchAuthors,
   toggleBookmark,
+  fetchSummary,
+  clearApiCache,
+  AggregationSummary,
 } from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { HeaderNav } from './components/HeaderNav';
 import { GlobalSearch } from './components/GlobalSearch';
-import { ArticleModal } from './components/ArticleModal';
 import { PapersFeed } from './pages/PapersFeed';
 import { Authors } from './pages/Authors';
 import { Bookmarks } from './pages/Bookmarks';
@@ -33,7 +30,7 @@ import { Journals } from './pages/Journals';
 import { Events } from './pages/Events';
 import { Wishlist } from './pages/Wishlist';
 import { Login } from './pages/Login';
-import { Scale, CheckCircle, AlertTriangle, RefreshCw, X, Loader2, ShieldCheck, Lock } from 'lucide-react';
+import { Scale, CheckCircle, AlertTriangle, RefreshCw, X, Loader2, Lock } from 'lucide-react';
 
 function AppContent() {
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -46,56 +43,50 @@ function AppContent() {
   const [selectedTag, setSelectedTag] = useState('全部领域');
   const [selectedJurisdiction, setSelectedJurisdiction] = useState<JurisdictionType>('All');
 
-  // Backend Data State
-  const [papers, setPapers] = useState<Paper[]>([]);
-  const [authors, setAuthors] = useState<Author[]>([]);
-  const [journals, setJournals] = useState<Journal[]>([]);
+  // Aggregation Summary & Global State (Mainstream Aggregator Pattern)
+  const [summary, setSummary] = useState<AggregationSummary>({
+    savedCount: 0,
+    urgentEventCount: 0,
+    pinnedJournalCount: 0,
+    wishlistCount: 0,
+    authorsCount: 0,
+    papersCount: 0,
+    journalsCount: 0,
+    lastUpdated: new Date().toISOString(),
+  });
+
   const [events, setEvents] = useState<AcademicEvent[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
-  const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [apiError, setApiError] = useState<string | null>(null);
-
-  // Modal State
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
+  const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('');
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const showToast = (text: string, type: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ type, text });
     setTimeout(() => {
       setToastMessage((prev) => (prev?.text === text ? null : prev));
     }, 4000);
-  };
+  }, []);
 
-  // Initial Data Fetching from Cloudflare Worker & D1 APIs
-  const loadAllData = useCallback(async () => {
+  // 1. Lightweight initial load: fetch summary + events for badges
+  const loadInitialData = useCallback(async (bypassCache = false) => {
     if (!isAuthenticated) return;
     setIsLoading(true);
     setApiError(null);
     try {
-      const [
-        papersRes,
-        authorsRes,
-        journalsRes,
-        fetchedEvents,
-        fetchedWishlist,
-        articlesRes,
-      ] = await Promise.all([
-        fetchPapers(undefined, 1, 15).catch(() => ({ papers: [], pagination: {} as any })),
-        fetchAuthors(1, 15).catch(() => ({ authors: [], pagination: {} as any })),
-        fetchJournals(1, 15).catch(() => ({ journals: [], pagination: {} as any })),
+      const [summaryRes, fetchedEvents, fetchedWishlist] = await Promise.all([
+        fetchSummary(bypassCache),
         fetchEvents().catch(() => []),
         fetchWishlist().catch(() => []),
-        fetchArticles(undefined, undefined, 1, 15).catch(() => ({ articles: [], pagination: {} as any })),
       ]);
 
-      setPapers(papersRes.papers || []);
-      setAuthors(authorsRes.authors || []);
-      setJournals(journalsRes.journals || []);
+      setSummary(summaryRes);
       setWishlist(fetchedWishlist);
-      setArticles(articlesRes.articles || []);
+      setLastUpdatedTime(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
 
       const academicEvents: AcademicEvent[] = fetchedEvents.map((e: EventItem) => ({
         id: e.id,
@@ -111,63 +102,35 @@ function AppContent() {
       }));
       setEvents(academicEvents);
     } catch (err: any) {
-      console.error('Initial data fetch failed:', err);
+      console.error('Initial summary fetch failed:', err);
       setApiError(err?.message || '无法连接至 Cloudflare D1 本地后端接口');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [isAuthenticated]);
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadAllData();
+      loadInitialData();
     }
-  }, [isAuthenticated, loadAllData]);
+  }, [isAuthenticated, loadInitialData]);
 
-  // Compute urgent events (within 7 days)
-  const urgentEventCount = useMemo(() => {
-    const now = new Date().getTime();
-    return events.filter((e) => {
-      const ddl = new Date(e.deadline).getTime();
-      const diffDays = (ddl - now) / (1000 * 3600 * 24);
-      return diffDays >= 0 && diffDays <= 7;
-    }).length;
-  }, [events]);
+  // Mainstream Aggregation Refresh: Invalidate all caches and re-fetch global state
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    clearApiCache();
+    await loadInitialData(true);
+    showToast('已完成全网法学学术元数据增量同步');
+  };
 
-  // Saved bookmarks count
-  const savedCount = useMemo(() => {
-    const savedPapers = papers.filter((p) => p.isBookmarked).length;
-    const savedAuthors = authors.filter((a) => a.isBookmarked).length;
-    const savedJournals = journals.filter((j) => j.isPinned).length;
-    return savedPapers + savedAuthors + savedJournals;
-  }, [papers, authors, journals]);
-
-  const pinnedJournalCount = useMemo(() => {
-    return journals.filter((j) => j.isPinned).length;
-  }, [journals]);
-
-  // Toggle Pin on Journal (strictly bound to current user)
-  const handleTogglePin = async (id: string) => {
-    const target = journals.find((j) => j.id === id);
-    if (!target) return;
-
-    const nextState = !target.isPinned;
-
-    // Optimistic UI update
-    setJournals((prev) => {
-      const updated = prev.map((j) => (j.id === id ? { ...j, isPinned: nextState } : j));
-      return updated.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
-    });
-
+  // Sync summary after mutations
+  const refreshSummaryOnly = async () => {
     try {
-      await toggleBookmark('journal', id, user?.id);
-      showToast(nextState ? `已将《${target.nameCn}》置顶到期刊架顶部` : `已取消《${target.nameCn}》置顶`);
-    } catch {
-      showToast('期刊置顶状态同步失败', 'error');
-      // Rollback
-      setJournals((prev) =>
-        prev.map((j) => (j.id === id ? { ...j, isPinned: !nextState } : j))
-      );
+      const s = await fetchSummary(true);
+      setSummary(s);
+    } catch (e) {
+      console.warn('Failed to update summary:', e);
     }
   };
 
@@ -181,6 +144,7 @@ function AppContent() {
         notes: item.notes,
       });
       setWishlist((prev) => [created, ...prev]);
+      setSummary((prev) => ({ ...prev, wishlistCount: prev.wishlistCount + 1 }));
       showToast(`已成功将【${item.name}】提交至收录心愿单并持久化至 D1 数据库！`);
     } catch (err: any) {
       showToast(err?.message || '提交失败，请重试', 'error');
@@ -231,7 +195,7 @@ function AppContent() {
   };
 
   // -------------------------------------------------------------
-  // 问题 2 解决：未登录情况下展示登录页，其它内容全部隐藏
+  // 未登录情况下展示登录页，其它内容全部隐藏
   // -------------------------------------------------------------
   if (isAuthLoading) {
     return (
@@ -267,7 +231,7 @@ function AppContent() {
 
         {/* Login Form Portal */}
         <main className="flex-1 flex items-center justify-center p-4">
-          <Login onSuccess={() => loadAllData()} />
+          <Login onSuccess={() => loadInitialData(true)} />
         </main>
 
         {/* Footer */}
@@ -279,7 +243,7 @@ function AppContent() {
   }
 
   // -------------------------------------------------------------
-  // 已登录状态：展示全部功能
+  // 已登录状态：展示全功能学术工作台
   // -------------------------------------------------------------
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col font-sans text-[#09090B]">
@@ -311,12 +275,15 @@ function AppContent() {
       <HeaderNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        savedCount={savedCount}
-        urgentEventCount={urgentEventCount}
-        pinnedJournalCount={pinnedJournalCount}
-        wishlistCount={wishlist.length}
-        authorsCount={authors.length}
+        savedCount={summary.savedCount}
+        urgentEventCount={summary.urgentEventCount}
+        pinnedJournalCount={summary.pinnedJournalCount}
+        wishlistCount={wishlist.length || summary.wishlistCount}
+        authorsCount={summary.authorsCount}
         onResetFilters={handleResetFilters}
+        onRefreshAll={handleRefreshAll}
+        isRefreshing={isRefreshing}
+        lastUpdated={lastUpdatedTime}
       />
 
       {/* Global Search Bar (with FTS5 full-text integration, Enter-triggered) */}
@@ -327,7 +294,7 @@ function AppContent() {
         setSelectedTag={setSelectedTag}
         selectedJurisdiction={selectedJurisdiction}
         setSelectedJurisdiction={setSelectedJurisdiction}
-        totalResults={papers.length}
+        totalResults={summary.papersCount}
         onClearAll={handleResetFilters}
         onSelectSearchResult={handleSelectSearchResult}
       />
@@ -344,7 +311,7 @@ function AppContent() {
               </div>
             </div>
             <button
-              onClick={loadAllData}
+              onClick={() => loadInitialData(true)}
               className="px-3 py-1.5 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors font-semibold text-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -359,7 +326,7 @@ function AppContent() {
         {isLoading && !apiError && (
           <div className="py-20 flex flex-col items-center justify-center gap-3 text-zinc-500">
             <Loader2 className="w-8 h-8 animate-spin text-[#0F52BA]" />
-            <p className="text-sm font-medium">正在自 Cloudflare D1 数据库加载全量学术图谱...</p>
+            <p className="text-sm font-medium">正在自 Cloudflare D1 数据库加载全量学术图谱概览...</p>
           </div>
         )}
 
@@ -382,12 +349,14 @@ function AppContent() {
               />
             )}
 
-            {/* VIEW 3: JOURNALS SHELF (核心期刊架 - 支持置顶与分页) */}
+            {/* VIEW 3: JOURNALS SHELF (核心期刊架 - 独立后端查询、置顶与分页) */}
             {activeTab === 'journals' && (
               <Journals
-                journals={journals}
-                onTogglePin={handleTogglePin}
                 onFilterByJournal={() => setActiveTab('papers')}
+                onShowToast={(msg, type) => {
+                  showToast(msg, type);
+                  refreshSummaryOnly();
+                }}
               />
             )}
 
@@ -397,7 +366,10 @@ function AppContent() {
             {/* VIEW 5: BOOKMARKS & BIBTEX EXPORT (个人收藏夹 - 纯前端 BibTeX 导出) */}
             {(activeTab === 'bookmarks' || activeTab === 'saved') && (
               <Bookmarks
-                onShowToast={showToast}
+                onShowToast={(msg, type) => {
+                  showToast(msg, type);
+                  refreshSummaryOnly();
+                }}
                 onNavigateToFeed={() => setActiveTab('papers')}
               />
             )}
@@ -417,20 +389,13 @@ function AppContent() {
               <Login
                 onSuccess={() => {
                   setActiveTab('papers');
-                  loadAllData();
+                  loadInitialData(true);
                 }}
               />
             )}
           </>
         )}
       </main>
-
-      {/* Deep Read Modal for legacy articles */}
-      <ArticleModal
-        article={selectedArticle}
-        onClose={() => setSelectedArticle(null)}
-        onToggleSave={() => {}}
-      />
 
       {/* Global Academic Footer */}
       <footer className="bg-white text-zinc-500 border-t border-zinc-200 mt-16 py-7 text-xs font-sans">
@@ -462,3 +427,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

@@ -812,12 +812,15 @@ export default {
       }
 
       // -------------------------------------------------------------
-      // 10. GET /api/journals - 获取期刊列表 (支持分页与置顶)
+      // 10. GET /api/journals - 获取期刊列表 (支持分页、法域筛选、检索与置顶)
       // -------------------------------------------------------------
       if (pathname === '/api/journals' && request.method === 'GET') {
         const authUser = await getAuthUser(request, env);
         const userId = authUser?.id || searchParams.get('user_id');
-        const { page, pageSize } = parsePaginationParams(searchParams, 15);
+        const jurisdiction = searchParams.get('jurisdiction');
+        const search = (searchParams.get('search') || searchParams.get('q') || '').trim().toLowerCase();
+        const tag = searchParams.get('tag');
+        const { page, pageSize } = parsePaginationParams(searchParams, 12);
 
         const query = `
           SELECT * FROM journals 
@@ -827,37 +830,74 @@ export default {
 
         // 联合查询当前用户 user_bookmarks 中的期刊收藏
         let bookmarkedJournalIds = new Set<string>();
+        let hasUserBookmarks = false;
         if (userId) {
           const bmQuery = `SELECT entity_id FROM user_bookmarks WHERE user_id = ? AND entity_type = 'journal'`;
           const { results: bmResults } = await env.DB.prepare(bmQuery).bind(userId).all<{ entity_id: string }>();
-          bookmarkedJournalIds = new Set((bmResults || []).map((b) => b.entity_id));
+          if (bmResults && bmResults.length > 0) {
+            hasUserBookmarks = true;
+            bookmarkedJournalIds = new Set(bmResults.map((b) => b.entity_id));
+          }
         }
 
-        const formatted = (results || []).map((row: JournalRow) => ({
-          id: row.id,
-          name: row.name,
-          issn: row.issn,
-          tier: row.tier,
-          tags: parseJsonField<string[]>(row.tags, []),
-          nameCn: row.name_cn || row.name,
-          nameOriginal: row.name,
-          abbreviation: row.abbreviation || '',
-          institution: row.institution || '',
-          country: row.country || '',
-          jurisdiction: row.jurisdiction || 'All',
-          category: row.category || '',
-          impactRank: row.impact_rank || '',
-          currentIssue: row.current_issue || '',
-          frequency: row.frequency || '',
-          isPinned: Boolean(row.is_pinned || bookmarkedJournalIds.has(row.id)),
-          coverColor: row.cover_color || 'from-blue-900 to-indigo-950',
-          description: row.description || '',
-          officialUrl: row.official_url || '',
-          recentArticlesCount: row.recent_articles_count || 0,
-        }));
+        let formatted = (results || []).map((row: JournalRow) => {
+          // 如果用户有自定义收藏记录，以用户的收藏为准；否则以系统初始置顶为准
+          const isPinned = userId
+            ? (hasUserBookmarks ? bookmarkedJournalIds.has(row.id) : Boolean(row.is_pinned))
+            : Boolean(row.is_pinned);
 
-        // 置顶排序优先
-        formatted.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+          return {
+            id: row.id,
+            name: row.name,
+            issn: row.issn,
+            tier: row.tier,
+            tags: parseJsonField<string[]>(row.tags, []),
+            nameCn: row.name_cn || row.name,
+            nameOriginal: row.name,
+            abbreviation: row.abbreviation || '',
+            institution: row.institution || '',
+            country: row.country || '',
+            jurisdiction: row.jurisdiction || 'All',
+            category: row.category || '',
+            impactRank: row.impact_rank || '',
+            currentIssue: row.current_issue || '',
+            frequency: row.frequency || '',
+            isPinned,
+            coverColor: row.cover_color || 'from-blue-900 to-indigo-950',
+            description: row.description || '',
+            officialUrl: row.official_url || '',
+            recentArticlesCount: row.recent_articles_count || 0,
+          };
+        });
+
+        // 法域筛选
+        if (jurisdiction && jurisdiction !== 'All' && jurisdiction !== '全部') {
+          formatted = formatted.filter((j) => j.jurisdiction === jurisdiction);
+        }
+
+        // 领域标签筛选
+        if (tag && tag !== '全部领域' && tag !== '全部') {
+          formatted = formatted.filter((j) => j.tags.includes(tag) || j.category.includes(tag));
+        }
+
+        // 关键词检索
+        if (search) {
+          formatted = formatted.filter(
+            (j) =>
+              j.nameCn.toLowerCase().includes(search) ||
+              j.nameOriginal.toLowerCase().includes(search) ||
+              j.abbreviation.toLowerCase().includes(search) ||
+              j.institution.toLowerCase().includes(search) ||
+              j.description.toLowerCase().includes(search) ||
+              j.category.toLowerCase().includes(search)
+          );
+        }
+
+        // 置顶排序优先，随后按中文名称排序
+        formatted.sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+          return a.nameCn.localeCompare(b.nameCn, 'zh-CN');
+        });
 
         const paginated = paginateArray(formatted, page, pageSize);
 
@@ -866,6 +906,58 @@ export default {
           data: paginated.data,
           pagination: paginated.pagination,
           total: paginated.total,
+        });
+      }
+
+      // -------------------------------------------------------------
+      // 10.5 GET /api/summary - 轻量级全局聚合状态 (用于顶栏红点与即时概览)
+      // -------------------------------------------------------------
+      if (pathname === '/api/summary' && request.method === 'GET') {
+        const authUser = await getAuthUser(request, env);
+        const userId = authUser?.id || searchParams.get('user_id');
+
+        let savedCount = 0;
+        if (userId) {
+          const { results: bms } = await env.DB.prepare(
+            `SELECT count(*) as cnt FROM user_bookmarks WHERE user_id = ?`
+          ).bind(userId).all<{ cnt: number }>();
+          savedCount = bms?.[0]?.cnt || 0;
+        }
+
+        // 计算即将截止的活动数 (7天内)
+        const now = new Date();
+        const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const { results: evts } = await env.DB.prepare(`SELECT deadline FROM events`).all<{ deadline: string }>();
+        const urgentEventCount = (evts || []).filter((e) => {
+          const d = new Date(e.deadline);
+          return !isNaN(d.getTime()) && d >= now && d <= sevenDaysLater;
+        }).length;
+
+        // 计算置顶期刊数
+        const { results: jList } = await env.DB.prepare(`SELECT is_pinned FROM journals`).all<{ is_pinned: number }>();
+        const pinnedJournalCount = (jList || []).filter((j) => j.is_pinned === 1).length;
+
+        const { results: wList } = await env.DB.prepare(`SELECT count(*) as cnt FROM wishlists`).all<{ cnt: number }>();
+        const wishlistCount = wList?.[0]?.cnt || 0;
+
+        const { results: aList } = await env.DB.prepare(`SELECT count(*) as cnt FROM authors`).all<{ cnt: number }>();
+        const authorsCount = aList?.[0]?.cnt || 0;
+
+        const { results: pList } = await env.DB.prepare(`SELECT count(*) as cnt FROM papers`).all<{ cnt: number }>();
+        const papersCount = pList?.[0]?.cnt || 0;
+
+        return jsonResponse({
+          success: true,
+          data: {
+            savedCount,
+            urgentEventCount,
+            pinnedJournalCount,
+            wishlistCount,
+            authorsCount,
+            papersCount,
+            journalsCount: jList?.length || 0,
+            lastUpdated: new Date().toISOString(),
+          },
         });
       }
 

@@ -11,7 +11,7 @@ import {
   CornerDownLeft,
   Loader2,
 } from 'lucide-react';
-import { TOPIC_TAGS, JURISDICTIONS } from '../data/mockData';
+import { TOPIC_TAGS, JURISDICTIONS } from '../constants/academic';
 import { JurisdictionType, GlobalSearchResult } from '../types';
 import { fetchGlobalSearch } from '../services/api';
 

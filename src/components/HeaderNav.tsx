@@ -12,6 +12,7 @@ import {
   Shield,
   LogIn,
   LogOut,
+  RefreshCw,
 } from 'lucide-react';
 
 interface HeaderNavProps {
@@ -23,6 +24,9 @@ interface HeaderNavProps {
   wishlistCount: number;
   authorsCount?: number;
   onResetFilters?: () => void;
+  onRefreshAll?: () => void;
+  isRefreshing?: boolean;
+  lastUpdated?: string;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -32,6 +36,9 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   urgentEventCount,
   wishlistCount,
   onResetFilters,
+  onRefreshAll,
+  isRefreshing,
+  lastUpdated,
 }) => {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
 
@@ -180,8 +187,21 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             </button>
           </nav>
 
-          {/* User Auth Section */}
+          {/* Refresh & User Auth Section */}
           <div className="flex items-center gap-2 shrink-0">
+            {onRefreshAll && isAuthenticated && (
+              <button
+                onClick={onRefreshAll}
+                disabled={isRefreshing}
+                className="hidden lg:flex items-center gap-1 px-2.5 py-1 text-xs text-zinc-600 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                title="全量刷新学术图谱缓存"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#0F52BA]' : 'text-zinc-500'}`} />
+                <span>{isRefreshing ? '同步中' : '刷新'}</span>
+                {lastUpdated && <span className="text-[10px] text-zinc-400 font-mono">({lastUpdated})</span>}
+              </button>
+            )}
+
             {isAuthenticated && user ? (
               <div className="flex items-center gap-2 pl-2 border-l border-zinc-200">
                 <div

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Article, AcademicEvent, Journal } from '../types';
-import { TOPIC_TAGS } from '../data/mockData';
+import { TOPIC_TAGS } from '../constants/academic';
 import { ArticleCard } from '../components/ArticleCard';
 import { EventSidebar } from '../components/EventSidebar';
 import { Filter, BookOpen, Library, ArrowRight, Scale } from 'lucide-react';

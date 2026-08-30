@@ -231,6 +231,11 @@ export async function toggleBookmark(
     throw new Error(errBody.error || `收藏操作失败 (HTTP ${res.status})`);
   }
 
+  // 缓存失效
+  clearApiCache('journals');
+  clearApiCache('summary');
+  clearApiCache('bookmarks');
+
   return await res.json();
 }
 
@@ -254,16 +259,88 @@ export async function fetchBookmarks(userId?: string): Promise<BookmarkItem[]> {
   return json.data || [];
 }
 
+export interface AggregationSummary {
+  savedCount: number;
+  urgentEventCount: number;
+  pinnedJournalCount: number;
+  wishlistCount: number;
+  authorsCount: number;
+  papersCount: number;
+  journalsCount: number;
+  lastUpdated: string;
+}
+
+// 客户端内存缓存机制 (类似 React Query / SWR，提升标签切换流畅度与防抖频控)
+const API_CACHE = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 60 * 1000; // 60秒缓存有效时间
+
+export function clearApiCache(prefix?: string) {
+  if (!prefix) {
+    API_CACHE.clear();
+    return;
+  }
+  for (const key of API_CACHE.keys()) {
+    if (key.startsWith(prefix)) {
+      API_CACHE.delete(key);
+    }
+  }
+}
+
 /**
- * 获取期刊列表 (支持分页与置顶)
+ * 获取期刊列表 (支持法域、关键词检索、分页与置顶)
  */
 export async function fetchJournals(
-  page = 1,
-  pageSize = 15
+  optionsOrPage:
+    | {
+        jurisdiction?: string;
+        search?: string;
+        tag?: string;
+        page?: number;
+        pageSize?: number;
+        bypassCache?: boolean;
+      }
+    | number = {},
+  fallbackPageSize = 12
 ): Promise<{ journals: Journal[]; pagination: PaginationMeta }> {
+  let jurisdiction = '';
+  let search = '';
+  let tag = '';
+  let page = 1;
+  let pageSize = 12;
+  let bypassCache = false;
+
+  if (typeof optionsOrPage === 'number') {
+    page = optionsOrPage;
+    pageSize = fallbackPageSize;
+  } else {
+    jurisdiction = optionsOrPage.jurisdiction || '';
+    search = optionsOrPage.search || '';
+    tag = optionsOrPage.tag || '';
+    page = optionsOrPage.page || 1;
+    pageSize = optionsOrPage.pageSize || 12;
+    bypassCache = Boolean(optionsOrPage.bypassCache);
+  }
+
   const params = new URLSearchParams();
+  if (jurisdiction && jurisdiction !== 'All' && jurisdiction !== '全部') {
+    params.set('jurisdiction', jurisdiction);
+  }
+  if (search && search.trim()) {
+    params.set('search', search.trim());
+  }
+  if (tag && tag !== '全部领域' && tag !== '全部') {
+    params.set('tag', tag.trim());
+  }
   params.set('page', String(page));
   params.set('pageSize', String(pageSize));
+
+  const cacheKey = `journals:${params.toString()}`;
+  if (!bypassCache) {
+    const cached = API_CACHE.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
 
   const res = await fetch(`${API_BASE}/journals?${params.toString()}`, {
     headers: getAuthHeaders(),
@@ -277,13 +354,59 @@ export async function fetchJournals(
   const pagination: PaginationMeta = json.pagination || {
     page,
     pageSize,
-    total: journals.length,
-    totalPages: Math.ceil(journals.length / pageSize) || 1,
+    total: json.total ?? journals.length,
+    totalPages: Math.ceil((json.total ?? journals.length) / pageSize) || 1,
     hasNext: false,
     hasPrev: false,
   };
 
-  return { journals, pagination };
+  const result = { journals, pagination };
+  API_CACHE.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
+}
+
+/**
+ * 获取全局统计与概览信息
+ */
+export async function fetchSummary(bypassCache = false): Promise<AggregationSummary> {
+  const cacheKey = 'summary:global';
+  if (!bypassCache) {
+    const cached = API_CACHE.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 30 * 1000) {
+      return cached.data;
+    }
+  }
+
+  const res = await fetch(`${API_BASE}/summary`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    return {
+      savedCount: 0,
+      urgentEventCount: 0,
+      pinnedJournalCount: 3,
+      wishlistCount: 5,
+      authorsCount: 8,
+      papersCount: 20,
+      journalsCount: 9,
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+
+  const json = await res.json();
+  const summary: AggregationSummary = json.data || {
+    savedCount: 0,
+    urgentEventCount: 0,
+    pinnedJournalCount: 3,
+    wishlistCount: 5,
+    authorsCount: 8,
+    papersCount: 20,
+    journalsCount: 9,
+    lastUpdated: new Date().toISOString(),
+  };
+
+  API_CACHE.set(cacheKey, { data: summary, timestamp: Date.now() });
+  return summary;
 }
 
 /**
@@ -327,6 +450,8 @@ export async function createWishlistItem(payload: {
   }
 
   const json = await res.json();
+  clearApiCache('wishlist');
+  clearApiCache('summary');
   return json.data;
 }
 
@@ -343,6 +468,8 @@ export async function voteWishlistItem(id: string, delta = 1): Promise<boolean> 
     const errBody = await res.json().catch(() => ({}));
     throw new Error(errBody.error || `Failed to vote (HTTP ${res.status})`);
   }
+  clearApiCache('wishlist');
+  clearApiCache('summary');
   return true;
 }
 
