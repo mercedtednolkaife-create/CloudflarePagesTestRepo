@@ -6,6 +6,7 @@ interface WishlistProps {
   wishlist: WishlistItem[];
   onAddWishlistItem: (item: Omit<WishlistItem, 'id' | 'submittedAt' | 'votes' | 'status'>) => Promise<boolean>;
   onVoteWishlistItem: (id: string) => void;
+  onRefreshWishlist?: () => void;
   isLoading?: boolean;
 }
 
@@ -13,6 +14,7 @@ export const Wishlist: React.FC<WishlistProps> = ({
   wishlist,
   onAddWishlistItem,
   onVoteWishlistItem,
+  onRefreshWishlist,
   isLoading = false,
 }) => {
   return (
@@ -21,6 +23,7 @@ export const Wishlist: React.FC<WishlistProps> = ({
         wishlist={wishlist}
         onAddWishlistItem={onAddWishlistItem}
         onVoteWishlistItem={onVoteWishlistItem}
+        onRefreshWishlist={onRefreshWishlist}
         isLoading={isLoading}
       />
     </div>

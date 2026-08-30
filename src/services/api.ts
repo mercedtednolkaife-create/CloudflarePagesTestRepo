@@ -120,16 +120,34 @@ export async function logoutUser(): Promise<void> {
 }
 
 /**
- * 获取学术论文信息流 (支持 tags 筛选与分页)
+ * 获取学术论文信息流 (支持 tags、journal、volume、issue、search 筛选与分页)
  */
 export async function fetchPapers(
   tag?: string,
   page = 1,
-  pageSize = 15
+  pageSize = 15,
+  options?: {
+    journal?: string;
+    volume?: string;
+    issue?: string;
+    search?: string;
+  }
 ): Promise<{ papers: Paper[]; pagination: PaginationMeta }> {
   const params = new URLSearchParams();
   if (tag && tag !== '全部领域' && tag !== '全部') {
     params.set('tag', tag);
+  }
+  if (options?.journal && options.journal !== '全部期刊') {
+    params.set('journal', options.journal);
+  }
+  if (options?.volume && options.volume !== '全部卷') {
+    params.set('volume', options.volume);
+  }
+  if (options?.issue && options.issue !== '全部期') {
+    params.set('issue', options.issue);
+  }
+  if (options?.search && options.search.trim()) {
+    params.set('q', options.search.trim());
   }
   params.set('page', String(page));
   params.set('pageSize', String(pageSize));

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WishlistItem, WishlistType, WishlistStatus } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { 
   HeartHandshake, 
   Send, 
@@ -11,13 +12,15 @@ import {
   Filter,
   Check,
   AlertCircle,
-  Loader2
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface WishlistSectionProps {
   wishlist: WishlistItem[];
   onAddWishlistItem: (item: Omit<WishlistItem, 'id' | 'submittedAt' | 'votes' | 'status'>) => Promise<boolean>;
   onVoteWishlistItem: (id: string) => void;
+  onRefreshWishlist?: () => void;
   isLoading?: boolean;
 }
 
@@ -25,16 +28,26 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
   wishlist,
   onAddWishlistItem,
   onVoteWishlistItem,
+  onRefreshWishlist,
   isLoading = false,
 }) => {
-  // Form State
+  const { user } = useAuth();
+
+  // Form State - default to logged in user's name
   const [name, setName] = useState('');
   const [type, setType] = useState<WishlistType>('期刊');
-  const [submitter, setSubmitter] = useState('');
+  const [submitter, setSubmitter] = useState(user?.username || '');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formSuccess, setFormSuccess] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Sync default submitter when user profile loads or changes
+  useEffect(() => {
+    if (user?.username && !submitter) {
+      setSubmitter(user.username);
+    }
+  }, [user?.username]);
 
   // Filter & Search State for Wishlist Table
   const [tableFilter, setTableFilter] = useState<string>('all');
@@ -52,21 +65,24 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
     setIsSubmitting(true);
 
     try {
+      const finalSubmitter = submitter.trim() || user?.username || '法学匿名学者';
       const ok = await onAddWishlistItem({
         name: name.trim(),
         type,
-        submitter: submitter.trim() || '法学匿名学者',
+        submitter: finalSubmitter,
         notes: notes.trim() || '学者通过前台心愿单提交收录申请。'
       });
 
       if (ok) {
         setName('');
         setNotes('');
-        setSubmitter('');
+        // Retain current user name for convenient repeated submissions
+        setSubmitter(user?.username || '');
         setFormSuccess(true);
+        setTimeout(() => setFormSuccess(false), 5000);
       }
     } catch (err: any) {
-      setFormError(err?.message || '提交失败，请确保 Worker 后端 (wrangler dev) 已正常启动');
+      setFormError(err?.message || '提交失败，请确保后端服务正常运行');
     } finally {
       setIsSubmitting(false);
     }
@@ -260,16 +276,29 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
                 <p className="text-xs text-zinc-500">来源于 D1 数据库 wishlists 表</p>
               </div>
 
-              {/* Search in table */}
-              <div className="relative w-full sm:w-48">
-                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchTableQuery}
-                  onChange={(e) => setSearchTableQuery(e.target.value)}
-                  placeholder="搜索心愿..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-md text-zinc-900 focus:outline-hidden focus:border-[#0F52BA] focus:bg-white"
-                />
+              {/* Search & Refresh in table */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="relative w-full sm:w-48">
+                  <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchTableQuery}
+                    onChange={(e) => setSearchTableQuery(e.target.value)}
+                    placeholder="搜索心愿..."
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-zinc-50 border border-zinc-200 rounded-md text-zinc-900 focus:outline-hidden focus:border-[#0F52BA] focus:bg-white"
+                  />
+                </div>
+                {onRefreshWishlist && (
+                  <button
+                    type="button"
+                    onClick={onRefreshWishlist}
+                    disabled={isLoading}
+                    className="p-1.5 rounded-md border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer disabled:opacity-50"
+                    title="刷新心愿单队列"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#0F52BA]' : ''}`} />
+                  </button>
+                )}
               </div>
             </div>
 

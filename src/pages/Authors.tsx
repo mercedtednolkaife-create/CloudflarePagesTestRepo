@@ -16,14 +16,21 @@ import {
   BookmarkCheck,
   Award,
   CornerDownLeft,
+  ArrowRight,
+  FileText,
 } from 'lucide-react';
 
 interface AuthorsProps {
   onSelectPaper?: (paperTitle: string) => void;
+  onViewAuthorPapers?: (authorName: string) => void;
   onShowToast?: (msg: string, type?: 'success' | 'error') => void;
 }
 
-export const Authors: React.FC<AuthorsProps> = ({ onSelectPaper, onShowToast }) => {
+export const Authors: React.FC<AuthorsProps> = ({ 
+  onSelectPaper, 
+  onViewAuthorPapers,
+  onShowToast 
+}) => {
   const { user } = useAuth();
   const [authors, setAuthors] = useState<Author[]>([]);
   const [localSearchInput, setLocalSearchInput] = useState<string>('');
@@ -317,23 +324,39 @@ export const Authors: React.FC<AuthorsProps> = ({ onSelectPaper, onShowToast }) 
                         </div>
                       )}
 
-                      {/* Recent Papers */}
+                      {/* Representative Papers (Max 5) & View Detailed Papers Button */}
                       {author.papers && author.papers.length > 0 && (
-                        <div className="bg-zinc-50 rounded-xl p-3 border border-zinc-100 space-y-2">
-                          <div className="text-[11px] font-semibold text-zinc-500 flex items-center gap-1.5">
-                            <BookOpen className="w-3.5 h-3.5 text-[#0F52BA]" />
-                            <span>代表论文 ({author.papers.length}):</span>
+                        <div className="bg-zinc-50 rounded-xl p-3.5 border border-zinc-100 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-[11px] font-semibold text-zinc-600 flex items-center gap-1.5">
+                              <BookOpen className="w-3.5 h-3.5 text-[#0F52BA]" />
+                              <span>代表论文 ({Math.min(author.papers.length, 5)}{author.papers.length > 5 ? ` / ${author.papers.length}` : ''}):</span>
+                            </div>
+
+                            {onViewAuthorPapers && (
+                              <button
+                                onClick={() => onViewAuthorPapers(author.name)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white hover:bg-zinc-100 text-[#0F52BA] hover:text-[#093d94] border border-blue-200/80 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs group"
+                                title={`在文献流中检索并查看学者【${author.name}】的全部论著`}
+                              >
+                                <FileText className="w-3 h-3 text-[#0F52BA]" />
+                                <span>查看详细论文</span>
+                                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                              </button>
+                            )}
                           </div>
+
                           <div className="space-y-1.5">
-                            {author.papers.map((p) => (
-                              <div key={p.id} className="text-xs text-zinc-800">
+                            {author.papers.slice(0, 5).map((p) => (
+                              <div key={p.id} className="text-xs text-zinc-800 flex items-start gap-1.5 group/p">
+                                <span className="text-[#0F52BA] font-bold select-none">•</span>
                                 <a
                                   href={p.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="hover:text-[#0F52BA] hover:underline font-medium line-clamp-1"
+                                  className="hover:text-[#0F52BA] hover:underline font-medium line-clamp-1 leading-snug"
                                 >
-                                  • {p.title}
+                                  {p.title}
                                 </a>
                               </div>
                             ))}

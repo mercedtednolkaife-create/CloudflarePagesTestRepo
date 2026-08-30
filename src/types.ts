@@ -60,6 +60,9 @@ export interface Paper {
   journalAbbr: string;
   journalTier?: string;
   journalColor?: string;
+  volume?: string;
+  issue?: string;
+  volumeIssue?: string;
   publishedAt: string;
   url: string;
   tags: string[];

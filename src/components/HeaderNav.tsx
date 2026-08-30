@@ -2,6 +2,7 @@ import React from 'react';
 import { NavTab } from '../types';
 import { useAuth } from '../context/AuthContext';
 import {
+  Compass,
   BookOpen,
   Library,
   CalendarClock,
@@ -67,7 +68,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           <div
             id="brand-logo-btn"
             onClick={() => {
-              setActiveTab('papers');
+              setActiveTab('home');
               if (onResetFilters) onResetFilters();
             }}
             className="flex items-center gap-3 cursor-pointer group select-none shrink-0"
@@ -93,10 +94,23 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           {/* Navigation Tabs */}
           <nav className="flex items-center gap-1 font-sans text-xs font-semibold overflow-x-auto py-1">
             <button
+              id="nav-tab-home"
+              onClick={() => setActiveTab('home')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'home'
+                  ? 'bg-zinc-900 text-white shadow-2xs'
+                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>首页</span>
+            </button>
+
+            <button
               id="nav-tab-papers"
               onClick={() => setActiveTab('papers')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'papers' || activeTab === 'home'
+                activeTab === 'papers'
                   ? 'bg-zinc-900 text-white shadow-2xs'
                   : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
               }`}

@@ -8,6 +8,7 @@ import {
   GlobalSearchResult,
   Paper,
   Author,
+  Article,
   EventItem,
 } from './types';
 import {
@@ -15,14 +16,16 @@ import {
   createWishlistItem,
   voteWishlistItem,
   fetchEvents,
-  toggleBookmark,
   fetchSummary,
+  fetchArticles,
+  fetchAuthors,
+  fetchJournals,
   clearApiCache,
   AggregationSummary,
 } from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { HeaderNav } from './components/HeaderNav';
-import { GlobalSearch } from './components/GlobalSearch';
+import { Home } from './pages/Home';
 import { PapersFeed } from './pages/PapersFeed';
 import { Authors } from './pages/Authors';
 import { Bookmarks } from './pages/Bookmarks';
@@ -35,8 +38,15 @@ import { Scale, CheckCircle, AlertTriangle, RefreshCw, X, Loader2, Lock } from '
 function AppContent() {
   const { user, isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
-  // Navigation State
-  const [activeTab, setActiveTab] = useState<NavTab>('papers');
+  // Navigation State - defaults to 'home'
+  const [activeTab, setActiveTab] = useState<NavTab>('home');
+
+  // Specific Filters across Views
+  const [filterAuthor, setFilterAuthor] = useState<string | null>(null);
+  const [filterJournal, setFilterJournal] = useState<string | null>(null);
+  const [filterVolume, setFilterVolume] = useState<string | null>(null);
+  const [filterIssue, setFilterIssue] = useState<string | null>(null);
+  const [filterPaperTitle, setFilterPaperTitle] = useState<string | null>(null);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +65,9 @@ function AppContent() {
     lastUpdated: new Date().toISOString(),
   });
 
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [authors, setAuthors] = useState<Author[]>([]);
+  const [journals, setJournals] = useState<Journal[]>([]);
   const [events, setEvents] = useState<AcademicEvent[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -72,19 +85,32 @@ function AppContent() {
     }, 4000);
   }, []);
 
-  // 1. Lightweight initial load: fetch summary + events for badges
+  // 1. Initial full-graph load for Home and summary counters
   const loadInitialData = useCallback(async (bypassCache = false) => {
     if (!isAuthenticated) return;
     setIsLoading(true);
     setApiError(null);
     try {
-      const [summaryRes, fetchedEvents, fetchedWishlist] = await Promise.all([
+      const [
+        summaryRes,
+        articlesRes,
+        authorsRes,
+        journalsRes,
+        fetchedEvents,
+        fetchedWishlist,
+      ] = await Promise.all([
         fetchSummary(bypassCache),
+        fetchArticles(undefined, undefined, 1, 30).catch(() => ({ articles: [], pagination: {} as any })),
+        fetchAuthors(1, 20).catch(() => ({ authors: [], pagination: {} as any })),
+        fetchJournals({ page: 1, pageSize: 20, bypassCache }).catch(() => ({ journals: [], pagination: {} as any })),
         fetchEvents().catch(() => []),
         fetchWishlist().catch(() => []),
       ]);
 
       setSummary(summaryRes);
+      setArticles(articlesRes.articles);
+      setAuthors(authorsRes.authors);
+      setJournals(journalsRes.journals);
       setWishlist(fetchedWishlist);
       setLastUpdatedTime(new Date().toLocaleTimeString('zh-CN', { hour12: false }));
 
@@ -180,18 +206,36 @@ function AppContent() {
     setSearchQuery('');
     setSelectedTag('全部领域');
     setSelectedJurisdiction('All');
+    setFilterAuthor(null);
+    setFilterJournal(null);
+    setFilterVolume(null);
+    setFilterIssue(null);
+    setFilterPaperTitle(null);
   };
 
-  const handleSelectSearchResult = (result: GlobalSearchResult) => {
-    if (result.entityType === 'paper' || result.entityType === 'article') {
-      setActiveTab('papers');
-    } else if (result.entityType === 'author') {
-      setActiveTab('authors');
-    } else if (result.entityType === 'journal') {
-      setActiveTab('journals');
-    } else if (result.entityType === 'wishlist') {
-      setActiveTab('wishlist');
+  // Navigation handlers from other components
+  const handleFilterByJournal = (journalName: string) => {
+    setFilterJournal(journalName);
+    setFilterVolume(null);
+    setFilterIssue(null);
+    setFilterPaperTitle(null);
+    setActiveTab('papers');
+  };
+
+  const handleViewAuthorPapers = (authorName: string) => {
+    setFilterAuthor(authorName);
+    setFilterPaperTitle(null);
+    setActiveTab('papers');
+  };
+
+  const handleViewPaperInFeed = (paperTitle: string, journalName?: string) => {
+    setFilterPaperTitle(paperTitle);
+    if (journalName) {
+      setFilterJournal(journalName);
     }
+    setFilterVolume(null);
+    setFilterIssue(null);
+    setActiveTab('papers');
   };
 
   // -------------------------------------------------------------
@@ -286,19 +330,6 @@ function AppContent() {
         lastUpdated={lastUpdatedTime}
       />
 
-      {/* Global Search Bar (with FTS5 full-text integration, Enter-triggered) */}
-      <GlobalSearch
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        selectedTag={selectedTag}
-        setSelectedTag={setSelectedTag}
-        selectedJurisdiction={selectedJurisdiction}
-        setSelectedJurisdiction={setSelectedJurisdiction}
-        totalResults={summary.papersCount}
-        onClearAll={handleResetFilters}
-        onSelectSearchResult={handleSelectSearchResult}
-      />
-
       {/* Backend API Connection Alert Banner */}
       {apiError && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 w-full">
@@ -332,11 +363,60 @@ function AppContent() {
 
         {!isLoading && (
           <>
-            {/* VIEW 1: PAPERS FEED (文献流 - 支持标签筛选、个人书签与标准分页) */}
-            {(activeTab === 'papers' || activeTab === 'home') && (
+            {/* VIEW 0: HOME PAGE (全新主页 - 保留置顶搜索框，陈列本周更新的文章、学者、活动与期刊，搜索后直接在下方分页展示结果) */}
+            {activeTab === 'home' && (
+              <Home
+                articles={articles}
+                events={events}
+                journals={journals}
+                authors={authors}
+                wishlists={wishlist}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                selectedTag={selectedTag}
+                setSelectedTag={setSelectedTag}
+                selectedJurisdiction={selectedJurisdiction}
+                setSelectedJurisdiction={setSelectedJurisdiction}
+                onFilterByJournal={handleFilterByJournal}
+                onViewAuthorPapers={handleViewAuthorPapers}
+                onViewPaperInFeed={handleViewPaperInFeed}
+                onNavigateToTab={setActiveTab}
+                onResetFilters={handleResetFilters}
+                onShowToast={showToast}
+              />
+            )}
+
+            {/* VIEW 1: PAPERS FEED (文献流 - 支持期刊、卷Vol、期Issue级联下拉过滤、学者过滤、个人书签与标准分页) */}
+            {activeTab === 'papers' && (
               <PapersFeed
-                onSelectAuthor={() => setActiveTab('authors')}
-                onSelectJournal={() => setActiveTab('journals')}
+                filterAuthor={filterAuthor}
+                filterJournal={filterJournal}
+                filterVolume={filterVolume}
+                filterIssue={filterIssue}
+                filterPaperTitle={filterPaperTitle}
+                onClearAuthorFilter={() => setFilterAuthor(null)}
+                onClearJournalFilter={() => {
+                  setFilterJournal(null);
+                  setFilterVolume(null);
+                  setFilterIssue(null);
+                }}
+                onClearVolumeFilter={() => {
+                  setFilterVolume(null);
+                  setFilterIssue(null);
+                }}
+                onClearIssueFilter={() => setFilterIssue(null)}
+                onClearPaperTitleFilter={() => setFilterPaperTitle(null)}
+                onSelectAuthor={(authorName) => setFilterAuthor(authorName)}
+                onSelectJournal={(journalName) => {
+                  setFilterJournal(journalName);
+                  setFilterVolume(null);
+                  setFilterIssue(null);
+                }}
+                onSelectVolume={(vol) => {
+                  setFilterVolume(vol);
+                  setFilterIssue(null);
+                }}
+                onSelectIssue={(iss) => setFilterIssue(iss)}
                 onShowToast={showToast}
               />
             )}
@@ -345,6 +425,7 @@ function AppContent() {
             {activeTab === 'authors' && (
               <Authors
                 onSelectPaper={() => setActiveTab('papers')}
+                onViewAuthorPapers={handleViewAuthorPapers}
                 onShowToast={showToast}
               />
             )}
@@ -352,7 +433,7 @@ function AppContent() {
             {/* VIEW 3: JOURNALS SHELF (核心期刊架 - 独立后端查询、置顶与分页) */}
             {activeTab === 'journals' && (
               <Journals
-                onFilterByJournal={() => setActiveTab('papers')}
+                onFilterByJournal={handleFilterByJournal}
                 onShowToast={(msg, type) => {
                   showToast(msg, type);
                   refreshSummaryOnly();
@@ -388,7 +469,7 @@ function AppContent() {
             {activeTab === 'login' && (
               <Login
                 onSuccess={() => {
-                  setActiveTab('papers');
+                  setActiveTab('home');
                   loadInitialData(true);
                 }}
               />
@@ -427,4 +508,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

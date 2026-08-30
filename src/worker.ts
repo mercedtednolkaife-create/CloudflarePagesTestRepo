@@ -58,6 +58,9 @@ export interface PaperRow {
   title: string;
   abstract: string | null;
   journal_id: string | null;
+  volume?: string | null;
+  issue?: string | null;
+  volume_issue?: string | null;
   published_at: string | null;
   url: string | null;
   tags: string | null;
@@ -445,10 +448,14 @@ export default {
       }
 
       // -------------------------------------------------------------
-      // 5. GET /api/papers - 获取学术论文信息流 (支持 tags 筛选与分页)
+      // 5. GET /api/papers - 获取学术论文信息流 (支持 tags、journal、volume、issue、search 筛选与分页)
       // -------------------------------------------------------------
       if (pathname === '/api/papers' && request.method === 'GET') {
         const tag = searchParams.get('tag') || searchParams.get('tags');
+        const journalFilter = searchParams.get('journal');
+        const volumeFilter = searchParams.get('volume');
+        const issueFilter = searchParams.get('issue');
+        const keyword = searchParams.get('q') || searchParams.get('search') || searchParams.get('query');
         const authUser = await getAuthUser(request, env);
         const currentUserId = authUser?.id || searchParams.get('user_id');
         const { page, pageSize } = parsePaginationParams(searchParams, 15);
@@ -460,6 +467,9 @@ export default {
             p.title,
             p.abstract,
             p.journal_id,
+            p.volume,
+            p.issue,
+            p.volume_issue,
             p.published_at,
             p.url,
             p.tags,
@@ -533,6 +543,9 @@ export default {
             journalAbbr: row.journal_abbr || '',
             journalTier: row.journal_tier || 'SSCI Q1',
             journalColor: row.journal_color || 'from-blue-900 to-indigo-950',
+            volume: row.volume || '',
+            issue: row.issue || '',
+            volumeIssue: row.volume_issue || (row.volume && row.issue ? `${row.volume}, ${row.issue}` : row.volume || row.issue || ''),
             publishedAt: row.published_at || '',
             url: row.url || '',
             tags,
@@ -542,9 +555,35 @@ export default {
           };
         });
 
-        // 5. 按 tags 筛选
+        // 5. 多维度筛选
         if (tag && tag !== '全部领域' && tag !== '全部') {
           papers = papers.filter((p) => p.tags.includes(tag));
+        }
+
+        if (journalFilter && journalFilter !== 'all' && journalFilter !== '全部期刊') {
+          papers = papers.filter((p) => 
+            p.journalName.toLowerCase() === journalFilter.toLowerCase() ||
+            p.journalNameCn?.toLowerCase() === journalFilter.toLowerCase() ||
+            p.journalAbbr.toLowerCase() === journalFilter.toLowerCase()
+          );
+        }
+
+        if (volumeFilter && volumeFilter !== 'all' && volumeFilter !== '全部卷') {
+          papers = papers.filter((p) => p.volume?.toLowerCase() === volumeFilter.toLowerCase());
+        }
+
+        if (issueFilter && issueFilter !== 'all' && issueFilter !== '全部期') {
+          papers = papers.filter((p) => p.issue?.toLowerCase() === issueFilter.toLowerCase());
+        }
+
+        if (keyword && keyword.trim()) {
+          const kw = keyword.trim().toLowerCase();
+          papers = papers.filter((p) =>
+            p.title.toLowerCase().includes(kw) ||
+            p.abstract.toLowerCase().includes(kw) ||
+            p.authors.some((a) => a.toLowerCase().includes(kw)) ||
+            p.journalName.toLowerCase().includes(kw)
+          );
         }
 
         // 6. 优先将当前用户收藏的文献置顶
@@ -830,20 +869,18 @@ export default {
 
         // 联合查询当前用户 user_bookmarks 中的期刊收藏
         let bookmarkedJournalIds = new Set<string>();
-        let hasUserBookmarks = false;
         if (userId) {
           const bmQuery = `SELECT entity_id FROM user_bookmarks WHERE user_id = ? AND entity_type = 'journal'`;
           const { results: bmResults } = await env.DB.prepare(bmQuery).bind(userId).all<{ entity_id: string }>();
           if (bmResults && bmResults.length > 0) {
-            hasUserBookmarks = true;
             bookmarkedJournalIds = new Set(bmResults.map((b) => b.entity_id));
           }
         }
 
         let formatted = (results || []).map((row: JournalRow) => {
-          // 如果用户有自定义收藏记录，以用户的收藏为准；否则以系统初始置顶为准
+          // 登录用户以自身收藏记录为准（全部取消置顶即为 0 项置顶）；未登录访客以系统初始 is_pinned 为准
           const isPinned = userId
-            ? (hasUserBookmarks ? bookmarkedJournalIds.has(row.id) : Boolean(row.is_pinned))
+            ? bookmarkedJournalIds.has(row.id)
             : Boolean(row.is_pinned);
 
           return {
@@ -933,9 +970,20 @@ export default {
           return !isNaN(d.getTime()) && d >= now && d <= sevenDaysLater;
         }).length;
 
-        // 计算置顶期刊数
-        const { results: jList } = await env.DB.prepare(`SELECT is_pinned FROM journals`).all<{ is_pinned: number }>();
-        const pinnedJournalCount = (jList || []).filter((j) => j.is_pinned === 1).length;
+        // 计算置顶期刊数 (针对当前登录用户)
+        let pinnedJournalCount = 0;
+        if (userId) {
+          const { results: jBms } = await env.DB.prepare(
+            `SELECT count(*) as cnt FROM user_bookmarks WHERE user_id = ? AND entity_type = 'journal'`
+          ).bind(userId).all<{ cnt: number }>();
+          pinnedJournalCount = jBms?.[0]?.cnt || 0;
+        } else {
+          const { results: jListPinned } = await env.DB.prepare(`SELECT is_pinned FROM journals`).all<{ is_pinned: number }>();
+          pinnedJournalCount = (jListPinned || []).filter((j) => j.is_pinned === 1).length;
+        }
+
+        const { results: jListTotal } = await env.DB.prepare(`SELECT count(*) as cnt FROM journals`).all<{ cnt: number }>();
+        const journalsCount = jListTotal?.[0]?.cnt || 0;
 
         const { results: wList } = await env.DB.prepare(`SELECT count(*) as cnt FROM wishlists`).all<{ cnt: number }>();
         const wishlistCount = wList?.[0]?.cnt || 0;
@@ -955,7 +1003,7 @@ export default {
             wishlistCount,
             authorsCount,
             papersCount,
-            journalsCount: jList?.length || 0,
+            journalsCount,
             lastUpdated: new Date().toISOString(),
           },
         });
