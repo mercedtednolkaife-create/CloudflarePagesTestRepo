@@ -210,10 +210,13 @@ export async function fetchAuthors(
 }
 
 /**
- * 获取学术活动与特刊征稿 (含 DDL 倒计时计算)
+ * 获取学术活动与特刊征稿 (含 DDL 倒计时计算与分类)
  */
-export async function fetchEvents(): Promise<EventItem[]> {
-  const res = await fetch(`${API_BASE}/events`, {
+export async function fetchEvents(category?: string): Promise<EventItem[]> {
+  const url = category && category !== 'all' && category !== '全部'
+    ? `${API_BASE}/events?category=${encodeURIComponent(category)}`
+    : `${API_BASE}/events`;
+  const res = await fetch(url, {
     headers: getAuthHeaders(),
   });
 

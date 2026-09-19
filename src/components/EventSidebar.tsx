@@ -51,6 +51,7 @@ export const EventSidebar: React.FC<EventSidebarProps> = ({
       <div className="space-y-4">
         {events.map((evt) => {
           const countdown = getRemainingTime(evt.deadline);
+          const isJob = evt.eventCategory === 'academic_job' || evt.type.includes('教职') || evt.type.includes('博士后');
 
           return (
             <div
@@ -59,9 +60,18 @@ export const EventSidebar: React.FC<EventSidebarProps> = ({
               className="group pb-3.5 border-b border-zinc-100 last:border-b-0 last:pb-0 space-y-1.5"
             >
               <div className="flex justify-between items-start gap-2">
-                <h4 className="text-xs font-semibold font-sans text-zinc-900 group-hover:text-[#0F52BA] transition-colors leading-snug">
-                  {evt.title}
-                </h4>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
+                      isJob ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-blue-50 text-[#0F52BA] border border-blue-200'
+                    }`}>
+                      {isJob ? '教职' : 'CFP'}
+                    </span>
+                    <h4 className="text-xs font-semibold font-sans text-zinc-900 group-hover:text-[#0F52BA] transition-colors leading-snug">
+                      {evt.titleCn || evt.title}
+                    </h4>
+                  </div>
+                </div>
                 {countdown.isUrgent ? (
                   <span className="text-[10px] font-sans font-bold px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-sm shrink-0 whitespace-nowrap">
                     {countdown.text}

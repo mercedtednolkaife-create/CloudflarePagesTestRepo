@@ -285,10 +285,15 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
                     </div>
                   )}
                   <div className="space-y-1 pr-6">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-mono text-xs font-bold tracking-wider px-2 py-0.5 bg-white/20 backdrop-blur-xs rounded">
                         {journal.abbreviation}
                       </span>
+                      {journal.tier && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 font-bold">
+                          {journal.tier}
+                        </span>
+                      )}
                       <span className="text-[11px] opacity-80 font-sans">
                         {journal.country}
                       </span>
@@ -323,15 +328,32 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
                       <Building className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                       <span className="truncate">{journal.institution}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span className="font-semibold text-zinc-800">{journal.impactRank}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span className="font-semibold text-zinc-800">{journal.impactRank}</span>
+                      </div>
+                      {(journal.issn || journal.issnPrint || journal.issnElectronic) && (
+                        <span className="font-mono text-[10px] text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200">
+                          ISSN: {journal.issn || journal.issnPrint || journal.issnElectronic}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <p className="text-zinc-600 text-xs leading-relaxed line-clamp-3 bg-zinc-50 p-2.5 rounded-lg border border-zinc-100">
                     {journal.description}
                   </p>
+
+                  {(journal.tagsCn || journal.tags) && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {(journal.tagsCn && journal.tagsCn.length > 0 ? journal.tagsCn : journal.tags || []).map((t) => (
+                        <span key={t} className="px-1.5 py-0.2 rounded bg-zinc-100 text-zinc-600 text-[10px]">
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

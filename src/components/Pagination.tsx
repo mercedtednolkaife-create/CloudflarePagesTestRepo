@@ -48,22 +48,22 @@ export const Pagination: React.FC<PaginationProps> = ({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-2 select-none font-sans text-xs text-zinc-600 border-t border-zinc-100 mt-4">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-2 select-none font-sans text-xs text-[#6E6E73] border-t border-black/[0.04] mt-4">
       {/* Left: Range and Total Display */}
       <div className="flex items-center gap-3">
-        <span className="font-mono">
-          显示第 <strong className="text-zinc-900">{startItem} - {endItem}</strong> {itemName}，
-          共 <strong className="text-zinc-900">{total}</strong> {itemName}
+        <span className="font-mono text-xs">
+          显示第 <strong className="text-[#1D1D1F] font-semibold">{startItem} - {endItem}</strong> {itemName}，
+          共 <strong className="text-[#1D1D1F] font-semibold">{total}</strong> {itemName}
         </span>
 
         {/* Page Size Selector */}
         {onPageSizeChange && (
-          <div className="flex items-center gap-1.5 ml-2 pl-3 border-l border-zinc-200">
-            <span className="text-zinc-400">每页:</span>
+          <div className="flex items-center gap-1.5 ml-2 pl-3 border-l border-black/[0.06]">
+            <span className="text-[#86868B]">每页:</span>
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs rounded-md px-2 py-1 border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-[#0F52BA] cursor-pointer"
+              className="bg-[#F5F5F7] hover:bg-black/[0.05] text-[#1D1D1F] text-xs rounded-full px-2.5 py-1 border border-black/[0.06] focus:outline-none focus:ring-1 focus:ring-[#0071E3] cursor-pointer transition-all"
             >
               <option value={10}>10 {itemName}</option>
               <option value={15}>15 {itemName}</option>
@@ -80,7 +80,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(1)}
           disabled={!hasPrev}
-          className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 disabled:opacity-30 disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer transition-colors"
+          className="p-1.5 rounded-full border border-black/[0.06] bg-white hover:bg-[#F5F5F7] text-[#1D1D1F] disabled:opacity-30 disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer transition-all shadow-xs"
           title="第一页"
         >
           <ChevronsLeft className="w-3.5 h-3.5" />
@@ -90,7 +90,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={!hasPrev}
-          className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 disabled:opacity-30 disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer transition-colors"
+          className="p-1.5 rounded-full border border-black/[0.06] bg-white hover:bg-[#F5F5F7] text-[#1D1D1F] disabled:opacity-30 disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer transition-all shadow-xs"
           title="上一页"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
@@ -101,7 +101,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           {getPageNumbers().map((p, idx) => {
             if (p === '...') {
               return (
-                <span key={`dots-${idx}`} className="px-2 py-1 text-zinc-400">
+                <span key={`dots-${idx}`} className="px-1.5 py-1 text-[#86868B]">
                   ...
                 </span>
               );
@@ -112,10 +112,10 @@ export const Pagination: React.FC<PaginationProps> = ({
               <button
                 key={`page-${p}`}
                 onClick={() => onPageChange(p as number)}
-                className={`min-w-7 h-7 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`w-7 h-7 rounded-full text-xs font-medium transition-all cursor-pointer flex items-center justify-center ${
                   isCurrent
-                    ? 'bg-zinc-900 text-white shadow-2xs'
-                    : 'bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200'
+                    ? 'bg-[#0071E3] text-white shadow-xs font-semibold'
+                    : 'bg-white hover:bg-black/[0.04] text-[#1D1D1F] border border-black/[0.06]'
                 }`}
               >
                 {p}
@@ -128,7 +128,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={!hasNext}
-          className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 disabled:opacity-30 disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer transition-colors"
+          className="p-1.5 rounded-full border border-black/[0.06] bg-white hover:bg-[#F5F5F7] text-[#1D1D1F] disabled:opacity-30 disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer transition-all shadow-xs"
           title="下一页"
         >
           <ChevronRight className="w-3.5 h-3.5" />
@@ -138,7 +138,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(totalPages)}
           disabled={!hasNext}
-          className="p-1.5 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-100 text-zinc-600 disabled:opacity-30 disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer transition-colors"
+          className="p-1.5 rounded-full border border-black/[0.06] bg-white hover:bg-[#F5F5F7] text-[#1D1D1F] disabled:opacity-30 disabled:hover:bg-white disabled:cursor-not-allowed cursor-pointer transition-all shadow-xs"
           title="最后一页"
         >
           <ChevronsRight className="w-3.5 h-3.5" />

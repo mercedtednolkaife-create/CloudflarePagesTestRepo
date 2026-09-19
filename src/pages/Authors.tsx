@@ -121,11 +121,15 @@ export const Authors: React.FC<AuthorsProps> = ({
       const matchesSearch =
         q === '' ||
         a.name.toLowerCase().includes(q) ||
+        (a.nameCn && a.nameCn.toLowerCase().includes(q)) ||
         (a.institution?.name || '').toLowerCase().includes(q) ||
+        (a.orcid && a.orcid.toLowerCase().includes(q)) ||
         (a.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+        (a.tagsCn || []).some((t) => t.toLowerCase().includes(q)) ||
         (a.ssrnId || '').toLowerCase().includes(q);
 
-      const matchesTag = selectedTag === '全部' || (a.tags || []).includes(selectedTag);
+      const allAuthorTags = [...(a.tags || []), ...(a.tagsCn || [])];
+      const matchesTag = selectedTag === '全部' || allAuthorTags.includes(selectedTag);
 
       return matchesSearch && matchesTag;
     });
@@ -252,8 +256,17 @@ export const Authors: React.FC<AuthorsProps> = ({
                               .join('') || 'LE'}
                           </div>
                           <div>
-                            <h2 className="text-base sm:text-lg font-bold text-zinc-900 font-editorial-heading flex items-center gap-2">
-                              <span>{author.name}</span>
+                            <h2 className="text-base sm:text-lg font-bold text-zinc-900 font-editorial-heading flex flex-wrap items-baseline gap-1.5">
+                              {author.nameCn ? (
+                                <>
+                                  <span>{author.nameCn}</span>
+                                  <span className="text-zinc-500 text-xs sm:text-sm font-serif font-normal">
+                                    ({author.name})
+                                  </span>
+                                </>
+                              ) : (
+                                <span>{author.name}</span>
+                              )}
                             </h2>
                             {author.institution && (
                               <div className="flex items-center gap-1.5 text-xs text-zinc-600 mt-0.5">
@@ -281,8 +294,8 @@ export const Authors: React.FC<AuthorsProps> = ({
                         </button>
                       </div>
 
-                      {/* Institution Details & Links */}
-                      <div className="flex flex-wrap gap-2 text-xs">
+                      {/* Institution Details & Academic Identifiers */}
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
                         {author.institution?.domain && (
                           <a
                             href={`https://${author.institution.domain}`}
@@ -296,6 +309,32 @@ export const Authors: React.FC<AuthorsProps> = ({
                           </a>
                         )}
 
+                        {author.profileUrl && (
+                          <a
+                            href={author.profileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 hover:bg-zinc-200 text-[11px]"
+                          >
+                            <span>教职主页</span>
+                            <ExternalLink className="w-2.5 h-2.5 text-zinc-400" />
+                          </a>
+                        )}
+
+                        {author.orcid && (
+                          <a
+                            href={`https://orcid.org/${author.orcid}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-mono font-medium"
+                            title={`ORCID: ${author.orcid}`}
+                          >
+                            <Award className="w-3 h-3 text-emerald-600" />
+                            <span>ORCID: {author.orcid}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+
                         {author.ssrnId && (
                           <a
                             href={author.ssrnUrl || `https://papers.ssrn.com/sol3/cf_dev/AbsByAuth.cfm?per_id=${author.ssrnId.replace('ssrn-', '')}`}
@@ -304,16 +343,16 @@ export const Authors: React.FC<AuthorsProps> = ({
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-[#0F52BA] border border-blue-100 hover:bg-blue-100 text-[11px] font-medium"
                           >
                             <Award className="w-3 h-3" />
-                            <span>SSRN ID: {author.ssrnId}</span>
+                            <span>SSRN: {author.ssrnId}</span>
                             <ExternalLink className="w-2.5 h-2.5" />
                           </a>
                         )}
                       </div>
 
                       {/* Research Tags */}
-                      {author.tags && author.tags.length > 0 && (
+                      {(author.tagsCn || author.tags) && (
                         <div className="flex flex-wrap gap-1">
-                          {author.tags.map((tag) => (
+                          {(author.tagsCn && author.tagsCn.length > 0 ? author.tagsCn : author.tags).map((tag) => (
                             <span
                               key={tag}
                               className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 text-[11px] font-medium"

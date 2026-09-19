@@ -45,25 +45,48 @@ export interface InstitutionRow {
 export interface AuthorRow {
   id: string;
   name: string;
+  name_cn?: string | null;
+  openalex_author_id?: string | null;
+  orcid?: string | null;
   ssrn_id: string | null;
+  profile_url?: string | null;
   institution_id: string | null;
   institution_name?: string | null;
   institution_domain?: string | null;
   institution_country?: string | null;
+  institution_type?: string | null;
   tags: string | null;
+  tags_cn?: string | null;
 }
 
 export interface PaperRow {
   id: string;
-  title: string;
-  abstract: string | null;
   journal_id: string | null;
+  paper_type?: string;
+  edition?: string;
+  category?: string;
+  category_cn?: string;
+  title: string;
+  title_cn?: string | null;
+  abstract: string | null;
+  abstract_cn?: string | null;
   volume?: string | null;
   issue?: string | null;
   volume_issue?: string | null;
   published_at: string | null;
   url: string | null;
+  canonical_url?: string | null;
+  pdf_url?: string | null;
+  doi?: string | null;
+  authors_json?: string | null;
+  recommended_citation?: string | null;
+  first_page?: string | null;
+  last_page?: string | null;
   tags: string | null;
+  tags_cn?: string | null;
+  reading_time?: number;
+  featured?: number;
+  citations_count?: number;
   journal_name?: string | null;
   journal_name_cn?: string | null;
   journal_abbr?: string | null;
@@ -73,13 +96,39 @@ export interface PaperRow {
 
 export interface EventRow {
   id: string;
+  feed_guid?: string | null;
   title: string;
-  deadline: string;
-  host_id: string | null;
+  title_cn?: string | null;
+  event_category?: 'call_for_papers' | 'academic_job' | string;
   event_type: string;
+  deadline: string;
+  submission_deadline?: string | null;
+  deadline_type?: 'fixed' | 'rolling' | 'tbd';
+  deadline_display?: string | null;
+  timezone?: string;
+  is_extended?: number;
+  original_deadline?: string | null;
+  notification_date?: string | null;
+  event_start_date?: string | null;
+  event_end_date?: string | null;
+  event_date?: string | null;
+  host_id: string | null;
   host_name?: string | null;
   host_country?: string | null;
   host_domain?: string | null;
+  journal_id?: string | null;
+  location?: string | null;
+  academic_year?: string | null;
+  hiring_rank?: string | null;
+  subject_areas?: string | null;
+  contact_info?: string | null;
+  tags_cn?: string | null;
+  description?: string | null;
+  description_cn?: string | null;
+  official_url?: string | null;
+  submission_url?: string | null;
+  fee_info?: string | null;
+  is_pinned?: number;
 }
 
 export interface BookmarkRow {
@@ -93,15 +142,18 @@ export interface BookmarkRow {
 export interface JournalRow {
   id: string;
   name: string;
-  issn: string | null;
-  tier: string | null;
-  tags: string | null;
   name_cn: string;
   abbreviation: string;
-  institution: string;
-  country: string;
-  jurisdiction: string;
+  institution?: string | null;
+  country?: string | null;
+  jurisdiction?: string | null;
+  issn_print?: string | null;
+  issn_electronic?: string | null;
+  issn: string | null;
+  tier: string | null;
   category: string;
+  tags: string | null;
+  tags_cn?: string | null;
   impact_rank: string;
   current_issue: string;
   frequency: string;
@@ -110,6 +162,7 @@ export interface JournalRow {
   description: string;
   official_url: string;
   recent_articles_count: number;
+  source_type?: string;
   created_at: string;
 }
 
@@ -464,17 +517,35 @@ export default {
         const papersQuery = `
           SELECT 
             p.id,
-            p.title,
-            p.abstract,
             p.journal_id,
+            p.paper_type,
+            p.edition,
+            p.category,
+            p.category_cn,
+            p.title,
+            p.title_cn,
+            p.abstract,
+            p.abstract_cn,
             p.volume,
             p.issue,
             p.volume_issue,
             p.published_at,
             p.url,
+            p.canonical_url,
+            p.pdf_url,
+            p.doi,
+            p.authors_json,
+            p.journal_name_cn,
+            p.recommended_citation,
+            p.first_page,
+            p.last_page,
             p.tags,
+            p.tags_cn,
+            p.reading_time,
+            p.featured,
+            p.citations_count,
             j.name AS journal_name,
-            j.name_cn AS journal_name_cn,
+            j.name_cn AS j_name_cn,
             j.abbreviation AS journal_abbr,
             j.tier AS journal_tier,
             j.cover_color AS journal_color
@@ -482,7 +553,9 @@ export default {
           LEFT JOIN journals j ON p.journal_id = j.id
           ORDER BY p.published_at DESC
         `;
-        const { results: paperResults } = await env.DB.prepare(papersQuery).all<PaperRow>();
+        const { results: paperResults } = await env.DB.prepare(papersQuery).all<PaperRow & {
+          j_name_cn?: string | null;
+        }>();
         const rawPapers = paperResults || [];
 
         // 2. 获取论文作者关联
@@ -491,6 +564,7 @@ export default {
             pa.paper_id,
             a.id AS author_id,
             a.name AS author_name,
+            a.name_cn,
             a.ssrn_id,
             i.name AS institution_name
           FROM paper_authors pa
@@ -501,6 +575,7 @@ export default {
           paper_id: string;
           author_id: string;
           author_name: string;
+          name_cn: string | null;
           ssrn_id: string | null;
           institution_name: string | null;
         }>();
@@ -510,6 +585,7 @@ export default {
           acc[row.paper_id].push({
             id: row.author_id,
             name: row.author_name,
+            nameCn: row.name_cn,
             ssrnId: row.ssrn_id,
             institution: row.institution_name,
           });
@@ -533,13 +609,23 @@ export default {
         let papers = rawPapers.map((row) => {
           const paperAuthors = authorsByPaper[row.id] || [];
           const tags = parseJsonField<string[]>(row.tags, []);
+          const tagsCn = parseJsonField<string[]>(row.tags_cn, []);
+          const parsedAuthorsJson = parseJsonField<any[]>(row.authors_json, []);
+          const journalNameCn = row.journal_name_cn || row.j_name_cn || row.journal_name || '';
+
           return {
             id: row.id,
             title: row.title,
+            titleCn: row.title_cn || null,
             abstract: row.abstract || '',
+            abstractCn: row.abstract_cn || null,
+            paperType: row.paper_type || 'journal_article',
+            edition: row.edition || 'print',
+            category: row.category || 'article',
+            categoryCn: row.category_cn || '学术论文',
             journalId: row.journal_id,
             journalName: row.journal_name || '综合法学期刊',
-            journalNameCn: row.journal_name_cn || row.journal_name || '',
+            journalNameCn,
             journalAbbr: row.journal_abbr || '',
             journalTier: row.journal_tier || 'SSCI Q1',
             journalColor: row.journal_color || 'from-blue-900 to-indigo-950',
@@ -548,16 +634,25 @@ export default {
             volumeIssue: row.volume_issue || (row.volume && row.issue ? `${row.volume}, ${row.issue}` : row.volume || row.issue || ''),
             publishedAt: row.published_at || '',
             url: row.url || '',
+            canonicalUrl: row.canonical_url || row.url || '',
+            pdfUrl: row.pdf_url || null,
+            doi: row.doi || null,
+            doiUrl: row.doi ? (row.doi.startsWith('http') ? row.doi : `https://doi.org/${row.doi}`) : null,
+            recommendedCitation: row.recommended_citation || null,
             tags,
-            authors: paperAuthors.map((a) => a.name),
-            authorsDetail: paperAuthors,
+            tagsCn,
+            readingTime: row.reading_time || 15,
+            featured: Boolean(row.featured),
+            citationsCount: row.citations_count || 0,
+            authors: paperAuthors.length > 0 ? paperAuthors.map((a) => a.name) : parsedAuthorsJson.map((a: any) => a.name),
+            authorsDetail: paperAuthors.length > 0 ? paperAuthors : parsedAuthorsJson,
             isBookmarked: bookmarkedPaperIds.has(row.id),
           };
         });
 
         // 5. 多维度筛选
         if (tag && tag !== '全部领域' && tag !== '全部') {
-          papers = papers.filter((p) => p.tags.includes(tag));
+          papers = papers.filter((p) => p.tags.includes(tag) || (p.tagsCn && p.tagsCn.includes(tag)));
         }
 
         if (journalFilter && journalFilter !== 'all' && journalFilter !== '全部期刊') {
@@ -580,9 +675,13 @@ export default {
           const kw = keyword.trim().toLowerCase();
           papers = papers.filter((p) =>
             p.title.toLowerCase().includes(kw) ||
+            (p.titleCn && p.titleCn.toLowerCase().includes(kw)) ||
             p.abstract.toLowerCase().includes(kw) ||
+            (p.abstractCn && p.abstractCn.toLowerCase().includes(kw)) ||
+            (p.categoryCn && p.categoryCn.toLowerCase().includes(kw)) ||
             p.authors.some((a) => a.toLowerCase().includes(kw)) ||
-            p.journalName.toLowerCase().includes(kw)
+            p.journalName.toLowerCase().includes(kw) ||
+            (p.journalNameCn && p.journalNameCn.toLowerCase().includes(kw))
           );
         }
 
@@ -618,9 +717,14 @@ export default {
           SELECT 
             a.id,
             a.name,
+            a.name_cn,
+            a.openalex_author_id,
+            a.orcid,
             a.ssrn_id,
+            a.profile_url,
             a.institution_id,
             a.tags,
+            a.tags_cn,
             i.name AS institution_name,
             i.domain AS institution_domain,
             i.country AS institution_country,
@@ -681,8 +785,13 @@ export default {
           return {
             id: row.id,
             name: row.name,
+            nameCn: row.name_cn || null,
+            openalexAuthorId: row.openalex_author_id || null,
+            orcid: row.orcid || null,
+            orcidUrl: row.orcid ? (row.orcid.startsWith('http') ? row.orcid : `https://orcid.org/${row.orcid}`) : null,
             ssrnId: row.ssrn_id,
             ssrnUrl: row.ssrn_id ? `https://papers.ssrn.com/sol3/cf_dev/AbsByAuth.cfm?per_id=${row.ssrn_id.replace('ssrn-', '')}` : null,
+            profileUrl: row.profile_url || null,
             institutionId: row.institution_id,
             institution: row.institution_name
               ? {
@@ -694,6 +803,7 @@ export default {
                 }
               : null,
             tags: parseJsonField<string[]>(row.tags, []),
+            tagsCn: parseJsonField<string[]>(row.tags_cn, []),
             papersCount: authorPapers.length,
             papers: authorPapers,
             isBookmarked: bookmarkedAuthorIds.has(row.id),
@@ -719,48 +829,109 @@ export default {
       }
 
       // -------------------------------------------------------------
-      // 7. GET /api/events - 获取学术活动与特刊征稿 (支持 DDL 倒计时计算)
+      // 7. GET /api/events - 获取学术活动与特刊征稿 (支持分类、DDL 倒计时与置顶)
       // -------------------------------------------------------------
       if (pathname === '/api/events' && request.method === 'GET') {
+        const categoryFilter = searchParams.get('category') || searchParams.get('event_category');
         const query = `
           SELECT 
             e.id,
+            e.feed_guid,
             e.title,
-            e.deadline,
+            e.title_cn,
+            e.event_category,
             e.event_type,
+            e.deadline,
+            e.submission_deadline,
+            e.deadline_type,
+            e.deadline_display,
+            e.timezone,
+            e.is_extended,
+            e.original_deadline,
+            e.notification_date,
+            e.event_start_date,
+            e.event_end_date,
+            e.event_date,
             e.host_id,
-            i.name AS host_name,
+            e.host_name,
+            e.journal_id,
+            e.location,
+            e.academic_year,
+            e.hiring_rank,
+            e.subject_areas,
+            e.contact_info,
+            e.tags_cn,
+            e.description,
+            e.description_cn,
+            e.official_url,
+            e.submission_url,
+            e.fee_info,
+            e.is_pinned,
+            i.name AS inst_host_name,
             i.country AS host_country,
             i.domain AS host_domain
           FROM events e
           LEFT JOIN institutions i ON e.host_id = i.id
-          ORDER BY e.deadline ASC
+          ORDER BY e.is_pinned DESC, e.deadline ASC
         `;
-        const { results } = await env.DB.prepare(query).all<EventRow>();
+        const { results } = await env.DB.prepare(query).all<EventRow & {
+          inst_host_name?: string | null;
+        }>();
 
-        const formatted = (results || []).map((row) => {
+        let formatted = (results || []).map((row) => {
+          const deadlineDate = row.submission_deadline || row.deadline;
           const now = new Date();
-          const target = new Date(`${row.deadline}T23:59:59`);
-          const diffMs = target.getTime() - now.getTime();
-          const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+          const target = deadlineDate ? new Date(`${deadlineDate.split(' ')[0]}T23:59:59`) : null;
+          const diffMs = target ? target.getTime() - now.getTime() : 0;
+          const diffDays = target ? Math.ceil(diffMs / (1000 * 60 * 60 * 24)) : 999;
           const isUrgent = diffDays >= 0 && diffDays <= 7;
           const isExpired = diffDays < 0;
 
           return {
             id: row.id,
+            feedGuid: row.feed_guid || null,
             title: row.title,
-            deadline: row.deadline,
+            titleCn: row.title_cn || null,
+            eventCategory: row.event_category || 'call_for_papers',
             eventType: row.event_type,
+            deadline: row.deadline,
+            submissionDeadline: row.submission_deadline || row.deadline,
+            deadlineType: row.deadline_type || 'fixed',
+            deadlineDisplay: row.deadline_display || null,
+            timezone: row.timezone || 'UTC',
+            isExtended: Boolean(row.is_extended),
+            originalDeadline: row.original_deadline || null,
+            notificationDate: row.notification_date || null,
+            eventStartDate: row.event_start_date || null,
+            eventEndDate: row.event_end_date || null,
+            eventDate: row.event_date || null,
             hostId: row.host_id,
-            hostName: row.host_name || '国际法学院联合会',
+            hostName: row.host_name || row.inst_host_name || '国际法学院联合会',
             hostCountry: row.host_country || '全球',
             hostDomain: row.host_domain || '',
+            journalId: row.journal_id || null,
+            location: row.location || null,
+            academicYear: row.academic_year || null,
+            hiringRank: row.hiring_rank || null,
+            subjectAreas: row.subject_areas || null,
+            contactInfo: row.contact_info || null,
+            tagsCn: parseJsonField<string[]>(row.tags_cn, []),
+            description: row.description || null,
+            descriptionCn: row.description_cn || null,
+            officialUrl: row.official_url || null,
+            submissionUrl: row.submission_url || null,
+            feeInfo: row.fee_info || null,
+            isPinned: Boolean(row.is_pinned),
             daysRemaining: diffDays,
             isUrgent,
             isExpired,
             statusText: isExpired ? '已截止' : diffDays === 0 ? '今日截止' : `剩余 ${diffDays} 天`,
           };
         });
+
+        if (categoryFilter && categoryFilter !== 'all' && categoryFilter !== '全部') {
+          formatted = formatted.filter((e) => e.eventCategory === categoryFilter);
+        }
 
         return jsonResponse({
           success: true,

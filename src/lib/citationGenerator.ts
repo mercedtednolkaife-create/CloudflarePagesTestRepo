@@ -2,22 +2,37 @@ import { Article } from '../types';
 
 export function generateBluebook(article: Article): string {
   const authorStr = article.authors.join(' & ');
-  return `${authorStr}, ${article.titleOriginal}, ${article.volumeIssue.replace('Vol. ', '').replace('No. ', '').replace('Issue ', '')} ${article.journalAbbr} (2026). DOI: ${article.doi}`;
+  const volPart = article.volumeIssue.replace('Vol. ', '').replace('No. ', '').replace('Issue ', '');
+  const pagePart = article.firstPage ? ` ${article.firstPage}` : '';
+  const year = article.publishDate ? article.publishDate.slice(0, 4) : '2026';
+  return `${authorStr}, ${article.titleOriginal}, ${volPart} ${article.journalAbbr}${pagePart} (${year}). DOI: ${article.doi}`;
 }
 
 export function generateGBT7714(article: Article): string {
   const authors = article.authors.join(', ');
-  return `[1] ${authors}. ${article.titleOriginal} [J]. ${article.journalName}, 2026, ${article.volumeIssue}. DOI: ${article.doi}.`;
+  const year = article.publishDate ? article.publishDate.slice(0, 4) : '2026';
+  const pagePart = article.firstPage
+    ? article.lastPage
+      ? `: ${article.firstPage}-${article.lastPage}`
+      : `: ${article.firstPage}`
+    : '';
+  return `[1] ${authors}. ${article.titleOriginal} [J]. ${article.journalName}, ${year}, ${article.volumeIssue}${pagePart}. DOI: ${article.doi}.`;
 }
 
 export function generateBibTeX(article: Article): string {
   const firstAuthor = article.authors[0]?.split(' ').pop() || 'LegalStudy';
-  return `@article{${firstAuthor.toLowerCase()}2026,
+  const year = article.publishDate ? article.publishDate.slice(0, 4) : '2026';
+  const pagesPart = article.firstPage
+    ? article.lastPage
+      ? `\n  pages = {${article.firstPage}--${article.lastPage}},`
+      : `\n  pages = {${article.firstPage}},`
+    : '';
+  return `@article{${firstAuthor.toLowerCase()}${year},
   author = {${article.authors.join(' and ')}},
   title = {${article.titleOriginal}},
   journal = {${article.journalName}},
-  volume = {${article.volumeIssue}},
-  year = {2026},
+  volume = {${article.volumeIssue}},${pagesPart}
+  year = {${year}},
   doi = {${article.doi}}
 }`;
 }
