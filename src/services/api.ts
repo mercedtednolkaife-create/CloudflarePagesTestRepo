@@ -131,6 +131,7 @@ export async function fetchPapers(
     volume?: string;
     issue?: string;
     search?: string;
+    bookmarked?: boolean;
   }
 ): Promise<{ papers: Paper[]; pagination: PaginationMeta }> {
   const params = new URLSearchParams();
@@ -148,6 +149,9 @@ export async function fetchPapers(
   }
   if (options?.search && options.search.trim()) {
     params.set('q', options.search.trim());
+  }
+  if (options?.bookmarked) {
+    params.set('bookmarked', 'true');
   }
   params.set('page', String(page));
   params.set('pageSize', String(pageSize));
@@ -180,11 +184,21 @@ export async function fetchPapers(
  */
 export async function fetchAuthors(
   page = 1,
-  pageSize = 15
+  pageSize = 15,
+  options?: {
+    search?: string;
+    bookmarked?: boolean;
+  }
 ): Promise<{ authors: Author[]; pagination: PaginationMeta }> {
   const params = new URLSearchParams();
   params.set('page', String(page));
   params.set('pageSize', String(pageSize));
+  if (options?.search && options.search.trim()) {
+    params.set('q', options.search.trim());
+  }
+  if (options?.bookmarked) {
+    params.set('bookmarked', 'true');
+  }
 
   const res = await fetch(`${API_BASE}/authors?${params.toString()}`, {
     headers: getAuthHeaders(),
@@ -319,6 +333,7 @@ export async function fetchJournals(
         page?: number;
         pageSize?: number;
         bypassCache?: boolean;
+        pinned?: boolean;
       }
     | number = {},
   fallbackPageSize = 12
@@ -329,6 +344,7 @@ export async function fetchJournals(
   let page = 1;
   let pageSize = 12;
   let bypassCache = false;
+  let pinned = false;
 
   if (typeof optionsOrPage === 'number') {
     page = optionsOrPage;
@@ -340,6 +356,7 @@ export async function fetchJournals(
     page = optionsOrPage.page || 1;
     pageSize = optionsOrPage.pageSize || 12;
     bypassCache = Boolean(optionsOrPage.bypassCache);
+    pinned = Boolean(optionsOrPage.pinned);
   }
 
   const params = new URLSearchParams();
@@ -351,6 +368,9 @@ export async function fetchJournals(
   }
   if (tag && tag !== '全部领域' && tag !== '全部') {
     params.set('tag', tag.trim());
+  }
+  if (pinned) {
+    params.set('pinned', 'true');
   }
   params.set('page', String(page));
   params.set('pageSize', String(pageSize));
@@ -477,9 +497,9 @@ export async function createWishlistItem(payload: {
 }
 
 /**
- * 心愿单点赞与催更
+ * 心愿单点赞与催更 (与 D1 触发器联动)
  */
-export async function voteWishlistItem(id: string, delta = 1): Promise<boolean> {
+export async function voteWishlistItem(id: string, delta = 1): Promise<{ success: boolean; userVoted: boolean; votes: number; message?: string }> {
   const res = await fetch(`${API_BASE}/wishlist/vote`, {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -489,9 +509,15 @@ export async function voteWishlistItem(id: string, delta = 1): Promise<boolean> 
     const errBody = await res.json().catch(() => ({}));
     throw new Error(errBody.error || `Failed to vote (HTTP ${res.status})`);
   }
+  const json = await res.json();
   clearApiCache('wishlist');
   clearApiCache('summary');
-  return true;
+  return {
+    success: json.success ?? true,
+    userVoted: Boolean(json.userVoted),
+    votes: typeof json.votes === 'number' ? json.votes : 0,
+    message: json.message,
+  };
 }
 
 /**
@@ -549,30 +575,4 @@ export async function fetchArticles(
   };
 
   return { articles, pagination };
-}
-
-/**
- * 兼容旧学术研讨会接口
- */
-export async function fetchAcademicEvents(): Promise<AcademicEvent[]> {
-  const res = await fetch(`${API_BASE}/events`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}));
-    throw new Error(errBody.error || `Failed to fetch events (HTTP ${res.status})`);
-  }
-  const json = await res.json();
-  return (json.data || []).map((e: any) => ({
-    id: e.id,
-    title: e.title,
-    host: e.hostName || '学术委员会',
-    type: e.eventType || '特刊征稿',
-    deadline: e.deadline,
-    eventDate: e.deadline,
-    location: e.hostCountry || '全球',
-    tags: ['法学研究', '征文'],
-    description: `主办方：${e.hostName} · 截稿倒计时：${e.statusText}`,
-    submissionUrl: e.hostDomain ? `https://${e.hostDomain}` : 'https://lexextern.org',
-  }));
 }

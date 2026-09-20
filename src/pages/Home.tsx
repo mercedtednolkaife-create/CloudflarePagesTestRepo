@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { TOPIC_TAGS, JURISDICTIONS } from '../constants/academic';
 import { fetchGlobalSearch } from '../services/api';
+import { copyToClipboard } from '../lib/clipboard';
 import {
   Search,
   X,
@@ -31,14 +32,20 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   FileText,
   HeartHandshake,
   Clock,
   Award,
   Globe,
   Building,
+  SlidersHorizontal,
+  Layers,
+  Star,
 } from 'lucide-react';
 import { generateBluebook } from '../lib/citationGenerator';
+import { ArticleModal } from '../components/ArticleModal';
 
 interface HomeProps {
   articles: Article[];
@@ -89,10 +96,52 @@ export const Home: React.FC<HomeProps> = ({
   const [ftsResults, setFtsResults] = useState<GlobalSearchResult[]>([]);
   const [showFtsDropdown, setShowFtsDropdown] = useState<boolean>(false);
   const [copiedCitationId, setCopiedCitationId] = useState<string | null>(null);
+  const [selectedArticleModal, setSelectedArticleModal] = useState<Article | null>(null);
+
+  const handleOpenArticleDetail = (article: Article) => {
+    setSelectedArticleModal(article);
+    if (onOpenArticleDetail) {
+      onOpenArticleDetail(article);
+    }
+  };
 
   // Pagination for Weekly Updated Articles
   const [weeklyArticlesPage, setWeeklyArticlesPage] = useState<number>(1);
   const weeklyArticlesPageSize = 5;
+
+  // Personalized Updates Tracking Configuration
+  // Dynamic article count per journal: 1 | 2 | 3 | 'all' (default 2)
+  const [articlesPerJournal, setArticlesPerJournal] = useState<1 | 2 | 3 | 'all'>(2);
+  // Set of journal IDs that have been manually expanded to show all articles
+  const [expandedJournalIds, setExpandedJournalIds] = useState<Set<string>>(new Set());
+  // Set of article IDs whose abstracts are expanded
+  const [expandedAbstractIds, setExpandedAbstractIds] = useState<Set<string>>(new Set());
+  // Active update feed tab: 'personalized' (user bookmarks) | 'all' (editorial stream)
+  const [updateFeedTab, setUpdateFeedTab] = useState<'personalized' | 'all'>('personalized');
+
+  const toggleJournalExpanded = (journalId: string) => {
+    setExpandedJournalIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(journalId)) {
+        next.delete(journalId);
+      } else {
+        next.add(journalId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAbstractExpanded = (articleId: string) => {
+    setExpandedAbstractIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(articleId)) {
+        next.delete(articleId);
+      } else {
+        next.add(articleId);
+      }
+      return next;
+    });
+  };
 
   // Search Results Entity Filter Tab ('all' | 'papers' | 'authors' | 'journals' | 'events' | 'wishlist')
   const [searchEntityFilter, setSearchEntityFilter] = useState<string>('all');
@@ -164,10 +213,10 @@ export const Home: React.FC<HomeProps> = ({
     onResetFilters();
   };
 
-  const handleCopyCitation = (e: React.MouseEvent, article: Article) => {
+  const handleCopyCitation = async (e: React.MouseEvent, article: Article) => {
     e.stopPropagation();
     const citation = generateBluebook(article);
-    navigator.clipboard.writeText(citation);
+    await copyToClipboard(citation);
     setCopiedCitationId(article.id);
     if (onShowToast) onShowToast('已复制 Bluebook 引证格式至剪贴板！', 'success');
     setTimeout(() => setCopiedCitationId(null), 2500);
@@ -182,7 +231,10 @@ export const Home: React.FC<HomeProps> = ({
         a.titleCn.toLowerCase().includes(q) ||
         a.titleOriginal.toLowerCase().includes(q) ||
         a.journalName.toLowerCase().includes(q) ||
-        a.authors.some((author) => author.toLowerCase().includes(q)) ||
+        a.authors.some((author) => {
+          const authorStr = typeof author === 'string' ? author : ((author as any)?.name || (author as any)?.nameCn || '');
+          return authorStr.toLowerCase().includes(q);
+        }) ||
         a.abstractCn.toLowerCase().includes(q);
 
       const matchesTag =
@@ -320,6 +372,87 @@ export const Home: React.FC<HomeProps> = ({
     return articles.slice(start, start + weeklyArticlesPageSize);
   }, [articles, weeklyArticlesPage, weeklyArticlesPageSize]);
 
+  // --- PERSONALIZED JOURNAL & AUTHOR UPDATES TRACKING ---
+  // 1. Pinned/Bookmarked Journals with recent updates
+  const pinnedJournals = useMemo(() => {
+    return journals.filter((j) => j.isPinned);
+  }, [journals]);
+
+  const updatedPinnedJournals = useMemo(() => {
+    return pinnedJournals
+      .map((journal) => {
+        const matching = articles.filter((art) => {
+          const jName = (art.journalName || '').toLowerCase().trim();
+          const jAbbr = (art.journalAbbr || '').toLowerCase().trim();
+          const targetName = (journal.nameOriginal || '').toLowerCase().trim();
+          const targetCn = (journal.nameCn || '').toLowerCase().trim();
+          const targetAbbr = (journal.abbreviation || '').toLowerCase().trim();
+
+          return (
+            jName === targetName ||
+            jName === targetCn ||
+            (targetAbbr && (jAbbr === targetAbbr || jName === targetAbbr))
+          );
+        });
+
+        // Determine latest volume and issue
+        const latestIssue = matching[0]?.volumeIssue || journal.currentIssue || '最新卷期';
+        const latestDate = matching[0]?.publishDate || '';
+
+        return {
+          journal,
+          articles: matching,
+          latestIssue,
+          latestDate,
+        };
+      })
+      .filter((entry) => entry.articles.length > 0); // 如没有更新则不做展示
+  }, [pinnedJournals, articles]);
+
+  const totalPinnedArticlesCount = useMemo(() => {
+    return updatedPinnedJournals.reduce((acc, curr) => acc + curr.articles.length, 0);
+  }, [updatedPinnedJournals]);
+
+  // 2. Bookmarked Authors with recent published articles
+  const bookmarkedAuthors = useMemo(() => {
+    return authors.filter((a) => a.isBookmarked);
+  }, [authors]);
+
+  const followedAuthorUpdates = useMemo(() => {
+    if (!bookmarkedAuthors || bookmarkedAuthors.length === 0) return [];
+
+    const updates: { author: Author; article: Article }[] = [];
+    const seen = new Set<string>();
+
+    bookmarkedAuthors.forEach((author) => {
+      const authorLower = author.name.toLowerCase().trim();
+      const authorCnLower = author.nameCn ? author.nameCn.toLowerCase().trim() : '';
+
+      articles.forEach((art) => {
+        const matchesAuthor = (art.authors || []).some((authName) => {
+          const rawName = typeof authName === 'string' ? authName : ((authName as any)?.name || (authName as any)?.nameCn || (authName as any)?.name_cn || '');
+          const an = rawName.toLowerCase().trim();
+          if (!an) return false;
+          return (
+            an === authorLower ||
+            an.includes(authorLower) ||
+            (authorCnLower && (an === authorCnLower || an.includes(authorCnLower)))
+          );
+        });
+
+        if (matchesAuthor) {
+          const key = `${author.id}-${art.id}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            updates.push({ author, article: art });
+          }
+        }
+      });
+    });
+
+    return updates;
+  }, [bookmarkedAuthors, articles]);
+
   // Upcoming Events (next 14 days or sort by deadline)
   const upcomingEvents = useMemo(() => {
     return [...events]
@@ -328,11 +461,31 @@ export const Home: React.FC<HomeProps> = ({
       .slice(0, 4);
   }, [events]);
 
-  // Pinned/Featured Journals
+  // Pinned/Featured Journals with latest issue updated this week
   const featuredJournals = useMemo(() => {
-    const pinned = journals.filter((j) => j.isPinned);
-    return pinned.length > 0 ? pinned.slice(0, 5) : journals.slice(0, 5);
-  }, [journals]);
+    return journals.map((j) => {
+      const matchingArticles = articles.filter(
+        (a) =>
+          a.journalName.toLowerCase() === j.nameOriginal.toLowerCase() ||
+          (a.journalAbbr && j.abbreviation && a.journalAbbr.toLowerCase() === j.abbreviation.toLowerCase())
+      );
+      const updatedIssue = matchingArticles[0]?.volumeIssue || j.currentIssue || '最新卷期';
+      return {
+        ...j,
+        updatedIssue,
+        hasWeeklyUpdate: matchingArticles.length > 0,
+        weeklyCount: matchingArticles.length,
+      };
+    })
+    .sort((a, b) => {
+      if (a.hasWeeklyUpdate && !b.hasWeeklyUpdate) return -1;
+      if (!a.hasWeeklyUpdate && b.hasWeeklyUpdate) return 1;
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return 0;
+    })
+    .slice(0, 5);
+  }, [journals, articles]);
 
   // Recent Scholar Highlights
   const recentAuthors = useMemo(() => {
@@ -352,9 +505,6 @@ export const Home: React.FC<HomeProps> = ({
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-zinc-900 tracking-tight">
               域外法学前沿检索与动态 (Jurisprudence Hub)
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-600 font-sans">
-              直连 SSCI 法学一区期刊、SSRN 顶尖学者论著、征稿启事 (CFP) 与引证数据库。
-            </p>
           </div>
         </div>
 
@@ -603,7 +753,7 @@ export const Home: React.FC<HomeProps> = ({
                                   法学文献
                                 </span>
                                 <button
-                                  onClick={() => onFilterByJournal(article.journalName)}
+                                  onClick={() => onFilterByJournal(article.journalName, article.volumeIssue)}
                                   className="text-xs font-semibold text-zinc-800 hover:text-[#0F52BA] underline cursor-pointer"
                                 >
                                   {article.journalName} ({article.journalAbbr})
@@ -613,17 +763,19 @@ export const Home: React.FC<HomeProps> = ({
                                 </span>
                               </div>
 
-                              <h3 className="text-base font-bold text-zinc-900 font-editorial-heading leading-snug">
+                              <h3 className="text-base font-bold text-[#1D1D1F] font-editorial-heading leading-snug">
                                 <span
                                   onClick={() => onOpenArticleDetail && onOpenArticleDetail(article)}
-                                  className="hover:text-[#0F52BA] cursor-pointer"
+                                  className="hover:text-[#0071E3] cursor-pointer"
                                 >
-                                  {article.titleOriginal}
+                                  {article.titleCn || article.titleOriginal}
                                 </span>
                               </h3>
-                              <p className="text-xs text-zinc-600 font-serif italic">
-                                {article.titleCn}
-                              </p>
+                              {article.titleCn && article.titleOriginal && article.titleCn !== article.titleOriginal && (
+                                <p className="text-xs text-[#6E6E73] font-serif mt-0.5">
+                                  {article.titleOriginal}
+                                </p>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0">
@@ -660,15 +812,18 @@ export const Home: React.FC<HomeProps> = ({
 
                           <div className="flex items-center gap-2 flex-wrap text-xs text-zinc-600">
                             <span className="font-medium text-zinc-800">著者:</span>
-                            {article.authors.map((authorName) => (
-                              <button
-                                key={authorName}
-                                onClick={() => onViewAuthorPapers(authorName)}
-                                className="hover:text-[#0F52BA] hover:underline cursor-pointer"
-                              >
-                                {authorName}
-                              </button>
-                            ))}
+                            {article.authors.map((authorName, idx) => {
+                              const nameStr = typeof authorName === 'string' ? authorName : ((authorName as any)?.name || (authorName as any)?.nameCn || '学者');
+                              return (
+                                <button
+                                  key={`${nameStr}-${idx}`}
+                                  onClick={() => onViewAuthorPapers(nameStr)}
+                                  className="hover:text-[#0F52BA] hover:underline cursor-pointer"
+                                >
+                                  {nameStr}
+                                </button>
+                              );
+                            })}
                             {article.authorAffiliation && (
                               <span className="text-[11px] text-zinc-400">
                                 ({article.authorAffiliation})
@@ -700,9 +855,9 @@ export const Home: React.FC<HomeProps> = ({
                                   onNavigateToTab('papers');
                                 }
                               }}
-                              className="inline-flex items-center gap-1 text-[#0F52BA] hover:underline font-semibold text-xs cursor-pointer"
+                              className="inline-flex items-center gap-1 text-[#0071E3] hover:underline font-semibold text-xs cursor-pointer"
                             >
-                              <span>在文献流中查看</span>
+                              <span>在文献库中查看</span>
                               <ArrowRight className="w-3 h-3" />
                             </button>
                           </div>
@@ -727,8 +882,13 @@ export const Home: React.FC<HomeProps> = ({
                                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                                     学者画像
                                   </span>
-                                  <h3 className="text-base font-bold text-zinc-900 font-editorial-heading">
-                                    {author.name}
+                                  <h3 className="text-base font-bold text-zinc-900 font-editorial-heading flex items-baseline gap-1.5 flex-wrap">
+                                    <span>{author.name}</span>
+                                    {author.nameCn && (
+                                      <span className="text-xs text-zinc-500 font-normal font-sans">
+                                        ({author.nameCn})
+                                      </span>
+                                    )}
                                   </h3>
                                 </div>
                                 {author.institution && (
@@ -974,239 +1134,697 @@ export const Home: React.FC<HomeProps> = ({
         /* --- MODE B: DEFAULT THIS WEEK'S UPDATES (本周更新陈列) --- */
         <section className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left 2/3 Column: 本周更新文章 (Weekly Updated Articles) */}
-            <div className="lg:col-span-8 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-200">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-zinc-900 text-white">
+            {/* Left 2/3 Column: 用户专属本周更新追踪 (Personalized Weekly Updates) */}
+            <div className="lg:col-span-8 space-y-5">
+              {/* Header & Mode Switcher */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 pb-3.5 border-b border-black/[0.06]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#1D1D1F] text-white flex items-center justify-center shrink-0 shadow-xs">
                     <BookOpen className="w-4 h-4" />
                   </div>
                   <div>
-                    <h2 className="font-editorial-heading font-bold text-lg text-zinc-900 tracking-tight flex items-center gap-2">
-                      <span>本周最新更新文章</span>
-                      <span className="text-[11px] font-sans font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-[#0F52BA] border border-blue-200">
-                        {articles.length} 篇收录
-                      </span>
-                    </h2>
-                    <p className="text-xs text-zinc-500">
-                      聚合顶刊最新出版专栏、判例解析与核心论述
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="font-editorial-heading font-bold text-lg text-[#1D1D1F] tracking-tight">
+                        本周更新追踪
+                      </h2>
+                      {pinnedJournals.length > 0 && (
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/15">
+                          已标星 {pinnedJournals.length} 本期刊
+                        </span>
+                      )}
+                      {followedAuthorUpdates.length > 0 && (
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/15">
+                          {followedAuthorUpdates.length} 篇关注学者新作
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => onNavigateToTab('papers')}
-                  className="text-xs text-[#0F52BA] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-                >
-                  <span>查看全部文献流</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                {/* Tab Switcher: 我的关注追踪 vs 全库文献库 */}
+                <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                  <div className="inline-flex p-0.5 rounded-xl bg-[#F5F5F7] border border-black/[0.04] text-xs">
+                    <button
+                      onClick={() => setUpdateFeedTab('personalized')}
+                      className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                        updateFeedTab === 'personalized'
+                          ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
+                          : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                      }`}
+                    >
+                      <Star className="w-3.5 h-3.5 text-[#0071E3] fill-[#0071E3]" />
+                      <span>我的关注更新</span>
+                    </button>
+                    <button
+                      onClick={() => setUpdateFeedTab('all')}
+                      className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                        updateFeedTab === 'all'
+                          ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
+                          : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                      }`}
+                    >
+                      <Globe className="w-3.5 h-3.5 text-[#0071E3]" />
+                      <span>全库文献库</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Weekly Articles List */}
-              <div className="space-y-4">
-                {paginatedWeeklyArticles.length > 0 ? (
-                  <>
-                    {paginatedWeeklyArticles.map((article) => (
-                      <article
-                        key={article.id}
-                        className="bg-white rounded-2xl border border-zinc-200 hover:border-zinc-300 hover:shadow-xs transition-all p-5 sm:p-6 space-y-3 relative group"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="space-y-2 flex-1">
-                            {/* Journal Info & Metadata */}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <button
-                                onClick={() => onFilterByJournal(article.journalName)}
-                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-zinc-900 text-white text-[11px] font-semibold hover:bg-[#0F52BA] transition-colors cursor-pointer"
-                              >
-                                <span>{article.journalName}</span>
-                                {article.journalAbbr && (
-                                  <span className="opacity-70 text-[10px]">
-                                    ({article.journalAbbr})
-                                  </span>
-                                )}
-                              </button>
-
-                              <span className="text-[11px] text-zinc-400 font-mono">
-                                {article.volumeIssue} · {article.publishDate}
-                              </span>
-
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-zinc-100 text-zinc-600">
-                                {article.jurisdiction}
+              {/* VIEW 1: PERSONALIZED UPDATES (我的专属追踪) */}
+              {updateFeedTab === 'personalized' ? (
+                <div className="space-y-6">
+                  {/* MODULE 1: 收藏的作者更新了哪些文章（如没有更新则不显示这一模块） */}
+                  {followedAuthorUpdates.length > 0 && (
+                    <div className="bg-white rounded-[22px] border border-black/[0.06] p-5 sm:p-6 space-y-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+                      <div className="flex items-center justify-between pb-3 border-b border-black/[0.06]">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center font-bold">
+                            <Users className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-editorial-heading font-bold text-base text-[#1D1D1F]">
+                                重点关注学者发刊动态
+                              </h3>
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#0071E3]/10 text-[#0071E3]">
+                                {followedAuthorUpdates.length} 篇新刊发表
                               </span>
                             </div>
-
-                            {/* Title */}
-                            <h3 className="text-base sm:text-lg font-bold text-zinc-900 font-editorial-heading leading-snug hover:text-[#0F52BA] transition-colors">
-                              <span
-                                onClick={() => onOpenArticleDetail && onOpenArticleDetail(article)}
-                                className="cursor-pointer"
-                              >
-                                {article.titleOriginal}
-                              </span>
-                            </h3>
-
-                            <p className="text-xs text-zinc-600 font-serif italic">
-                              {article.titleCn}
-                            </p>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button
-                              onClick={(e) => handleCopyCitation(e, article)}
-                              className="p-2 rounded-lg border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
-                              title="复制 Bluebook 标准引证"
-                            >
-                              {copiedCitationId === article.id ? (
-                                <Check className="w-4 h-4 text-emerald-600" />
-                              ) : (
-                                <Quote className="w-4 h-4" />
-                              )}
-                            </button>
-                            {onToggleSave && (
-                              <button
-                                onClick={() => onToggleSave(article.id, 'article')}
-                                className={`p-2 rounded-lg border transition-colors cursor-pointer ${
-                                  article.saved
-                                    ? 'bg-blue-50 text-[#0F52BA] border-blue-200'
-                                    : 'border-zinc-200 text-zinc-400 hover:text-zinc-700'
-                                }`}
-                                title={article.saved ? '取消收藏' : '加入个人收藏夹'}
-                              >
-                                {article.saved ? (
-                                  <BookmarkCheck className="w-4 h-4 fill-[#0F52BA]" />
-                                ) : (
-                                  <Bookmark className="w-4 h-4" />
-                                )}
-                              </button>
-                            )}
                           </div>
                         </div>
 
-                        {/* Authors */}
-                        <div className="flex items-center gap-2 flex-wrap text-xs text-zinc-600">
-                          <Users className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          <span className="font-semibold text-zinc-800">著者:</span>
-                          {article.authors.map((author) => (
-                            <button
-                              key={author}
-                              onClick={() => onViewAuthorPapers(author)}
-                              className="hover:text-[#0F52BA] hover:underline cursor-pointer"
+                        <button
+                          onClick={() => onNavigateToTab('authors')}
+                          className="text-xs text-[#0071E3] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <span>关注学者库</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Author Updates Cards List */}
+                      <div className="space-y-3">
+                        {followedAuthorUpdates.map(({ author, article }) => {
+                          const isAbstractExpanded = expandedAbstractIds.has(article.id);
+                          return (
+                            <div
+                              key={`author-update-${author.id}-${article.id}`}
+                              className="p-4 rounded-[18px] bg-[#F5F5F7]/60 hover:bg-[#F5F5F7] border border-black/[0.04] transition-all space-y-2.5"
                             >
-                              {author}
+                              {/* Scholar Header Bar */}
+                              <div className="flex items-center justify-between gap-3 pb-2 border-b border-black/[0.04]">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-7 rounded-lg bg-[#1D1D1F] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                                    {author.name.slice(0, 2)}
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-sm text-[#1D1D1F] font-editorial-heading">
+                                      {author.name}
+                                    </span>
+                                    {author.nameCn && (
+                                      <span className="text-xs text-[#6E6E73] font-medium bg-black/[0.04] px-1.5 py-0.2 rounded">
+                                        {author.nameCn}
+                                      </span>
+                                    )}
+                                    {author.institution && (
+                                      <span className="text-xs text-[#86868B] truncate">
+                                        · {author.institution.name}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() => onViewAuthorPapers(author.name)}
+                                  className="text-xs text-[#0071E3] hover:underline font-medium shrink-0 cursor-pointer"
+                                >
+                                  查看学者论文
+                                </button>
+                              </div>
+
+                              {/* Article Details */}
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="px-2 py-0.5 rounded-md bg-[#1D1D1F] text-white text-[10px] font-semibold">
+                                    {article.journalName}
+                                  </span>
+                                  <span className="text-[11px] text-[#86868B] font-mono">
+                                    {article.volumeIssue} · {article.publishDate}
+                                  </span>
+                                  {article.jurisdiction && (
+                                    <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-black/[0.04] text-[#6E6E73]">
+                                      {article.jurisdiction}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h4
+                                  onClick={() => handleOpenArticleDetail(article)}
+                                  className="text-sm font-bold text-[#1D1D1F] font-editorial-heading hover:text-[#0071E3] transition-colors cursor-pointer leading-snug"
+                                >
+                                  {article.titleCn || article.titleOriginal}
+                                </h4>
+
+                                {article.titleCn && article.titleOriginal && article.titleCn !== article.titleOriginal && (
+                                  <p className="text-xs text-[#6E6E73] font-serif mt-0.5">
+                                    {article.titleOriginal}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Actions & Abstract Preview */}
+                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-black/[0.04] text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    onClick={(e) => handleCopyCitation(e, article)}
+                                    className="p-1 rounded-md border border-black/[0.06] text-[#86868B] hover:text-[#1D1D1F] transition-colors cursor-pointer"
+                                    title="复制 Bluebook 标准引证"
+                                  >
+                                    {copiedCitationId === article.id ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Quote className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                  {onToggleSave && (
+                                    <button
+                                      onClick={() => onToggleSave(article.id, 'article')}
+                                      className={`p-1 rounded-md border transition-colors cursor-pointer ${
+                                        article.saved
+                                          ? 'bg-[#0071E3]/10 text-[#0071E3] border-[#0071E3]/20'
+                                          : 'border-black/[0.06] text-[#86868B] hover:text-[#1D1D1F]'
+                                      }`}
+                                      title={article.saved ? '已收藏' : '加入收藏'}
+                                    >
+                                      {article.saved ? (
+                                        <BookmarkCheck className="w-3.5 h-3.5 fill-[#0071E3]" />
+                                      ) : (
+                                        <Bookmark className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  {article.abstractCn && (
+                                    <button
+                                      onClick={() => toggleAbstractExpanded(article.id)}
+                                      className="text-[11px] text-[#6E6E73] hover:text-[#1D1D1F] flex items-center gap-0.5 cursor-pointer font-medium"
+                                    >
+                                      <span>{isAbstractExpanded ? '收起摘要' : '摘要预览'}</span>
+                                      {isAbstractExpanded ? (
+                                        <ChevronUp className="w-3 h-3" />
+                                      ) : (
+                                        <ChevronDown className="w-3 h-3" />
+                                      )}
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleOpenArticleDetail(article)}
+                                    className="inline-flex items-center gap-0.5 font-semibold text-[#0071E3] hover:underline cursor-pointer text-xs"
+                                  >
+                                    <span>详情</span>
+                                    <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {isAbstractExpanded && article.abstractCn && (
+                                <div className="text-xs text-[#1D1D1F] leading-relaxed bg-white p-3 rounded-xl border border-black/[0.04]">
+                                  <p>{article.abstractCn}</p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* MODULE 2: 收藏的期刊更新到了哪一期以及对应的更新的文章流 */}
+                  {/* 为了所有收藏期刊都能有效展示，可以动态选择每个期刊展示的文章数，如没有更新则不做展示 */}
+                  {updatedPinnedJournals.length > 0 ? (
+                    <div className="space-y-4">
+                      {/* Control Bar: Pinned Journals Count + Dynamic Article Count Switcher */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#F5F5F7] p-3 rounded-2xl border border-black/[0.04]">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center font-bold">
+                            <Library className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <span className="font-bold text-xs text-[#1D1D1F]">
+                              已收藏期刊更新 ({updatedPinnedJournals.length} 本期刊有新刊发表)
+                            </span>
+                            <span className="text-[11px] text-[#86868B] ml-2 hidden md:inline">
+                              共收录 {totalPinnedArticlesCount} 篇新刊文献
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Segmented Controller for articles per journal */}
+                        <div className="flex items-center gap-1 self-start sm:self-auto">
+                          <span className="text-[11px] text-[#86868B] px-1.5 flex items-center gap-1">
+                            <SlidersHorizontal className="w-3 h-3" />
+                            <span>每刊展示:</span>
+                          </span>
+                          {[1, 2, 3, 'all'].map((val) => (
+                            <button
+                              key={val}
+                              onClick={() => setArticlesPerJournal(val as any)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                                articlesPerJournal === val
+                                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
+                                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                              }`}
+                            >
+                              {val === 'all' ? '全部' : `${val} 篇`}
                             </button>
                           ))}
-                          {article.authorAffiliation && (
-                            <span className="text-[11px] text-zinc-400">
-                              · {article.authorAffiliation}
-                            </span>
-                          )}
                         </div>
+                      </div>
 
-                        {/* Abstract */}
-                        <p className="text-xs text-zinc-600 line-clamp-2 leading-relaxed bg-zinc-50/80 p-3 rounded-xl border border-zinc-100">
-                          {article.abstractCn}
-                        </p>
+                      {/* Stream of Updated Pinned Journals */}
+                      {updatedPinnedJournals.map(({ journal, articles: journalArticles, latestIssue }) => {
+                        const isFullyExpanded = expandedJournalIds.has(journal.id);
+                        const displayedArticles =
+                          articlesPerJournal === 'all' || isFullyExpanded
+                            ? journalArticles
+                            : journalArticles.slice(0, articlesPerJournal);
+                        const remainingCount = journalArticles.length - displayedArticles.length;
 
-                        {/* Footer Tags & Links */}
-                        <div className="flex items-center justify-between gap-2 pt-1 text-xs border-t border-zinc-100">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {article.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 text-[11px]"
-                              >
-                                #{tag}
-                              </span>
-                            ))}
-                          </div>
+                        return (
+                          <div
+                            key={journal.id}
+                            className="bg-white rounded-[22px] border border-black/[0.06] p-5 sm:p-6 space-y-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)] transition-all hover:border-black/[0.1]"
+                          >
+                            {/* Journal Header & Latest Issue Badge */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-black/[0.06]">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-bold text-base text-[#1D1D1F] font-editorial-heading">
+                                    {journal.nameOriginal}
+                                  </span>
+                                  {journal.nameCn && (
+                                    <span className="text-xs text-[#6E6E73] font-medium">
+                                      {journal.nameCn}
+                                    </span>
+                                  )}
+                                  <span className="font-mono text-[10px] font-bold px-2 py-0.5 bg-black/[0.05] text-[#1D1D1F] rounded-md">
+                                    {journal.abbreviation}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-[#86868B] flex items-center gap-1.5">
+                                  <span>{journal.institution}</span>
+                                  <span>·</span>
+                                  <span>{journal.tier || 'SSCI 法学一区'}</span>
+                                </div>
+                              </div>
 
-                          <div className="flex items-center gap-2">
-                            {article.doi && (
-                              <a
-                                href={`https://doi.org/${article.doi}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] text-zinc-500 hover:text-[#0F52BA]"
-                              >
-                                <span>DOI</span>
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
+                              {/* Issue Updated & Direct Action */}
+                              <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-auto">
+                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-xs font-bold shadow-2xs">
+                                  <Layers className="w-3 h-3" />
+                                  <span>更新至：{latestIssue}</span>
+                                </div>
+                                <button
+                                  onClick={() => onFilterByJournal(journal.nameOriginal, latestIssue)}
+                                  className="text-xs text-[#0071E3] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
+                                  title={`前往文献库查看【${journal.nameCn || journal.nameOriginal}】${latestIssue} 收录文章`}
+                                >
+                                  <span>查看本期 ({journalArticles.length})</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Stream of Articles for This Journal */}
+                            <div className="space-y-3">
+                              {displayedArticles.map((article) => {
+                                const isAbstractExpanded = expandedAbstractIds.has(article.id);
+                                return (
+                                  <article
+                                    key={article.id}
+                                    className="p-4 rounded-[16px] bg-[#F5F5F7]/60 hover:bg-[#F5F5F7] border border-black/[0.04] transition-all space-y-2 relative group"
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="space-y-1 flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap text-[11px] text-[#86868B] font-mono">
+                                          <span>{article.volumeIssue}</span>
+                                          <span>·</span>
+                                          <span>{article.publishDate}</span>
+                                          {article.jurisdiction && (
+                                            <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-black/[0.04] text-[#6E6E73]">
+                                              {article.jurisdiction}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <h4
+                                          onClick={() => handleOpenArticleDetail(article)}
+                                          className="text-sm sm:text-base font-bold text-[#1D1D1F] font-editorial-heading hover:text-[#0071E3] transition-colors cursor-pointer leading-snug"
+                                        >
+                                          {article.titleCn || article.titleOriginal}
+                                        </h4>
+
+                                        {article.titleCn && article.titleOriginal && article.titleCn !== article.titleOriginal && (
+                                          <p className="text-xs text-[#6E6E73] font-serif mt-0.5">
+                                            {article.titleOriginal}
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      {/* Quick Actions */}
+                                      <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                                        <button
+                                          onClick={(e) => handleCopyCitation(e, article)}
+                                          className="p-1.5 rounded-lg border border-black/[0.06] text-[#86868B] hover:text-[#1D1D1F] hover:bg-white transition-colors cursor-pointer"
+                                          title="复制 Bluebook 标准引证"
+                                        >
+                                          {copiedCitationId === article.id ? (
+                                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                          ) : (
+                                            <Quote className="w-3.5 h-3.5" />
+                                          )}
+                                        </button>
+                                        {onToggleSave && (
+                                          <button
+                                            onClick={() => onToggleSave(article.id, 'article')}
+                                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                              article.saved
+                                                ? 'bg-[#0071E3]/10 text-[#0071E3] border-[#0071E3]/20'
+                                                : 'border-black/[0.06] text-[#86868B] hover:text-[#1D1D1F] hover:bg-white'
+                                            }`}
+                                            title={article.saved ? '已收藏' : '加入收藏'}
+                                          >
+                                            {article.saved ? (
+                                              <BookmarkCheck className="w-3.5 h-3.5 fill-[#0071E3]" />
+                                            ) : (
+                                              <Bookmark className="w-3.5 h-3.5" />
+                                            )}
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Chinese Abstract Display on Card */}
+                                    {article.abstractCn && (
+                                      <p className="text-xs text-[#6E6E73] leading-relaxed line-clamp-2 select-text font-sans">
+                                        {article.abstractCn}
+                                      </p>
+                                    )}
+
+                                    {/* Authors & Details Action Bar */}
+                                    <div className="flex items-center justify-between gap-2 flex-wrap text-xs pt-1.5 border-t border-black/[0.04]">
+                                      <div className="flex items-center gap-1.5 flex-wrap text-[#6E6E73] text-[11px]">
+                                        <Users className="w-3 h-3 text-[#86868B] shrink-0" />
+                                        <span className="font-medium text-[#1D1D1F]">著者:</span>
+                                        {article.authors.map((author, idx) => {
+                                          const nameStr = typeof author === 'string' ? author : ((author as any)?.name || (author as any)?.nameCn || '学者');
+                                          return (
+                                            <button
+                                              key={`${nameStr}-${idx}`}
+                                              onClick={() => onViewAuthorPapers(nameStr)}
+                                              className="hover:text-[#0071E3] hover:underline cursor-pointer"
+                                            >
+                                              {nameStr}
+                                            </button>
+                                          );
+                                        })}
+                                        {article.authorAffiliation && (
+                                          <span className="text-[10px] text-[#86868B]">
+                                            · {article.authorAffiliation}
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <button
+                                        onClick={() => handleOpenArticleDetail(article)}
+                                        className="inline-flex items-center gap-1 font-semibold text-[#0071E3] hover:text-[#005bb5] transition-colors cursor-pointer text-xs ml-auto shrink-0"
+                                        title="点击查看完整学术信息卡片（含完整双语摘要与预计研读时间）"
+                                      >
+                                        <span>详情</span>
+                                        <ArrowRight className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </article>
+                                );
+                              })}
+                            </div>
+
+                            {/* Expand Remaining Articles Button */}
+                            {articlesPerJournal !== 'all' && journalArticles.length > articlesPerJournal && (
+                              <div className="pt-1 text-center">
+                                <button
+                                  onClick={() => toggleJournalExpanded(journal.id)}
+                                  className="px-4 py-1.5 rounded-full text-xs font-semibold text-[#0071E3] hover:bg-[#0071E3]/5 transition-colors cursor-pointer inline-flex items-center gap-1"
+                                >
+                                  {isFullyExpanded ? (
+                                    <>
+                                      <span>收起其余文章</span>
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>展开本刊其余 {remainingCount} 篇发刊文章</span>
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    </>
+                                  )}
+                                </button>
+                              </div>
                             )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* When user has no bookmarked journals OR none have updates */
+                    <div className="bg-white rounded-[22px] border border-black/[0.06] p-8 text-center space-y-4 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+                      <div className="w-12 h-12 rounded-2xl bg-[#0071E3]/10 text-[#0071E3] flex items-center justify-center mx-auto">
+                        <Library className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1.5 max-w-md mx-auto">
+                        <h3 className="text-base font-bold text-[#1D1D1F] font-editorial-heading">
+                          {pinnedJournals.length === 0
+                            ? '定制您的专属核心期刊更新追踪'
+                            : '您收藏的核心期刊本周暂无新卷期发表'}
+                        </h3>
+                        <p className="text-xs text-[#6E6E73] leading-relaxed">
+                          {pinnedJournals.length === 0
+                            ? '您尚未在「核心期刊架」标星收藏期刊。标星后，系统将在此处专为呈现您所关注的法学期刊最新卷期与发刊动态。'
+                            : `您已标星关注的 ${pinnedJournals.length} 本期刊本周暂无新发文献。您可以探索更多期刊或切换至全库文献库浏览最新论文。`}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-center gap-3 pt-2">
+                        <button
+                          onClick={() => onNavigateToTab('journals')}
+                          className="px-4 py-2 bg-[#1D1D1F] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Star className="w-3.5 h-3.5" />
+                          <span>前往核心期刊架标星</span>
+                        </button>
+                        <button
+                          onClick={() => setUpdateFeedTab('all')}
+                          className="px-4 py-2 bg-[#F5F5F7] hover:bg-black/[0.06] text-[#1D1D1F] text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>浏览全库文献库</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* VIEW 2: ALL EDITORIAL ARTICLES (全库本周文章总流) */
+                <div className="space-y-4">
+                  {paginatedWeeklyArticles.length > 0 ? (
+                    <>
+                      {paginatedWeeklyArticles.map((article) => {
+                        const isAbstractExpanded = expandedAbstractIds.has(article.id);
+                        return (
+                          <article
+                            key={article.id}
+                            className="bg-white rounded-[18px] border border-black/[0.06] hover:border-black/[0.12] hover:shadow-[0_4px_16px_rgba(0,0,0,0.03)] transition-all p-4 sm:p-5 space-y-2.5 relative group"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1 flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <button
+                                    onClick={() => onFilterByJournal(article.journalName, article.volumeIssue)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#1D1D1F] text-white text-[11px] font-semibold hover:bg-[#0071E3] transition-colors cursor-pointer"
+                                  >
+                                    <span>{article.journalName}</span>
+                                    {article.journalAbbr && (
+                                      <span className="opacity-70 text-[10px]">
+                                        ({article.journalAbbr})
+                                      </span>
+                                    )}
+                                  </button>
+
+                                  <span className="text-[11px] text-[#86868B] font-mono">
+                                    {article.volumeIssue} · {article.publishDate}
+                                  </span>
+
+                                  {article.jurisdiction && (
+                                    <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-black/[0.04] text-[#6E6E73]">
+                                      {article.jurisdiction}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h3 className="text-base font-bold text-[#1D1D1F] font-editorial-heading leading-snug hover:text-[#0071E3] transition-colors">
+                                  <span
+                                    onClick={() => handleOpenArticleDetail(article)}
+                                    className="cursor-pointer"
+                                  >
+                                    {article.titleCn || article.titleOriginal}
+                                  </span>
+                                </h3>
+
+                                {article.titleCn && article.titleOriginal && article.titleCn !== article.titleOriginal && (
+                                  <p className="text-xs text-[#6E6E73] font-serif mt-0.5">
+                                    {article.titleOriginal}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                                <button
+                                  onClick={(e) => handleCopyCitation(e, article)}
+                                  className="p-1.5 rounded-lg border border-black/[0.06] text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.03] transition-colors cursor-pointer"
+                                  title="复制 Bluebook 标准引证"
+                                >
+                                  {copiedCitationId === article.id ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <Quote className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                                {onToggleSave && (
+                                  <button
+                                    onClick={() => onToggleSave(article.id, 'article')}
+                                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
+                                      article.saved
+                                        ? 'bg-[#0071E3]/10 text-[#0071E3] border-[#0071E3]/20'
+                                        : 'border-black/[0.06] text-[#86868B] hover:text-[#1D1D1F]'
+                                    }`}
+                                    title={article.saved ? '取消收藏' : '加入个人收藏夹'}
+                                  >
+                                    {article.saved ? (
+                                      <BookmarkCheck className="w-3.5 h-3.5 fill-[#0071E3]" />
+                                    ) : (
+                                      <Bookmark className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Chinese Abstract Display on Card */}
+                            {article.abstractCn && (
+                              <p className="text-xs text-[#6E6E73] leading-relaxed line-clamp-2 select-text font-sans">
+                                {article.abstractCn}
+                              </p>
+                            )}
+
+                            {/* Authors & Details Action Bar */}
+                            <div className="flex items-center justify-between gap-2 flex-wrap text-xs pt-1.5 border-t border-black/[0.04]">
+                              <div className="flex items-center gap-1.5 flex-wrap text-[#6E6E73] text-[11px]">
+                                <Users className="w-3 h-3 text-[#86868B] shrink-0" />
+                                <span className="font-semibold text-[#1D1D1F]">著者:</span>
+                                {article.authors.map((author, idx) => {
+                                  const nameStr = typeof author === 'string' ? author : ((author as any)?.name || (author as any)?.nameCn || '学者');
+                                  return (
+                                    <button
+                                      key={`${nameStr}-${idx}`}
+                                      onClick={() => onViewAuthorPapers(nameStr)}
+                                      className="hover:text-[#0071E3] hover:underline cursor-pointer"
+                                    >
+                                      {nameStr}
+                                    </button>
+                                  );
+                                })}
+                                {article.authorAffiliation && (
+                                  <span className="text-[10px] text-[#86868B]">
+                                    · {article.authorAffiliation}
+                                  </span>
+                                )}
+                              </div>
+
+                              <button
+                                onClick={() => handleOpenArticleDetail(article)}
+                                className="inline-flex items-center gap-1 font-semibold text-[#0071E3] hover:text-[#005bb5] transition-colors cursor-pointer text-xs ml-auto shrink-0"
+                                title="点击查看完整学术信息卡片（含完整双语摘要与预计研读时间）"
+                              >
+                                <span>详情</span>
+                                <ArrowRight className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+
+                      {/* Pagination for weekly updated papers */}
+                      {totalWeeklyArticlesPages > 1 && (
+                        <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-black/[0.06]">
+                          <span className="text-xs text-[#6E6E73] font-mono">
+                            第 {weeklyArticlesPage} / {totalWeeklyArticlesPages} 页 (本周共{' '}
+                            {articles.length} 篇)
+                          </span>
+                          <div className="flex items-center gap-2">
                             <button
-                              onClick={() => onOpenArticleDetail && onOpenArticleDetail(article)}
-                              className="inline-flex items-center gap-1 font-semibold text-[#0F52BA] hover:underline cursor-pointer text-xs"
+                              onClick={() => setWeeklyArticlesPage((p) => Math.max(p - 1, 1))}
+                              disabled={weeklyArticlesPage === 1}
+                              className="px-3 py-1.5 rounded-lg border border-black/[0.06] text-xs font-medium text-[#1D1D1F] hover:bg-[#F5F5F7] disabled:opacity-40 cursor-pointer flex items-center gap-1"
                             >
-                              <span>详情</span>
-                              <ArrowRight className="w-3 h-3" />
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                              <span>上一页</span>
+                            </button>
+                            <button
+                              onClick={() =>
+                                setWeeklyArticlesPage((p) =>
+                                  Math.min(p + 1, totalWeeklyArticlesPages)
+                                )
+                              }
+                              disabled={weeklyArticlesPage === totalWeeklyArticlesPages}
+                              className="px-3 py-1.5 rounded-lg border border-black/[0.06] text-xs font-medium text-[#1D1D1F] hover:bg-[#F5F5F7] disabled:opacity-40 cursor-pointer flex items-center gap-1"
+                            >
+                              <span>下一页</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
-                      </article>
-                    ))}
-
-                    {/* Pagination for weekly updated papers */}
-                    {totalWeeklyArticlesPages > 1 && (
-                      <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-zinc-200">
-                        <span className="text-xs text-zinc-500 font-mono">
-                          第 {weeklyArticlesPage} / {totalWeeklyArticlesPages} 页 (本周共{' '}
-                          {articles.length} 篇)
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setWeeklyArticlesPage((p) => Math.max(p - 1, 1))}
-                            disabled={weeklyArticlesPage === 1}
-                            className="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 cursor-pointer flex items-center gap-1"
-                          >
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                            <span>上一页</span>
-                          </button>
-                          <button
-                            onClick={() =>
-                              setWeeklyArticlesPage((p) =>
-                                Math.min(p + 1, totalWeeklyArticlesPages)
-                              )
-                            }
-                            disabled={weeklyArticlesPage === totalWeeklyArticlesPages}
-                            className="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40 cursor-pointer flex items-center gap-1"
-                          >
-                            <span>下一页</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="bg-white rounded-2xl border border-zinc-200 p-8 text-center space-y-2">
-                    <BookOpen className="w-8 h-8 text-zinc-300 mx-auto" />
-                    <h3 className="text-sm font-bold text-zinc-800">暂无本周更新文章</h3>
-                    <p className="text-xs text-zinc-500">
-                      当前队列中暂无本周收录新文章，您可以前往文献流查看历史馆藏。
-                    </p>
-                  </div>
-                )}
-              </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="bg-white rounded-[22px] border border-black/[0.06] p-8 text-center space-y-2">
+                      <BookOpen className="w-8 h-8 text-zinc-300 mx-auto" />
+                      <h3 className="text-sm font-bold text-[#1D1D1F]">暂无本周更新文章</h3>
+                      <p className="text-xs text-[#6E6E73]">
+                        当前队列中暂无本周收录新文章，您可以前往文献库查看历史馆藏。
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Right 1/3 Column: 3 Structured Vertical Widgets */}
             <div className="lg:col-span-4 space-y-5">
               {/* Widget 1: 本周更新学者 (Recent Scholar Highlights) */}
-              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-2xs space-y-3.5">
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+              <div className="bg-white rounded-[22px] p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-3.5">
+                <div className="flex items-center justify-between pb-2.5 border-b border-black/[0.04]">
                   <div className="flex items-center gap-2">
-                    <div className="p-1 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-600">
                       <Users className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="font-editorial-heading font-bold text-sm text-zinc-900">
+                    <h3 className="font-editorial-heading font-bold text-sm text-[#1D1D1F]">
                       本周更新学者
                     </h3>
                   </div>
                   <button
                     onClick={() => onNavigateToTab('authors')}
-                    className="text-xs text-[#0F52BA] hover:underline font-semibold flex items-center gap-0.5"
+                    className="text-xs text-[#0071E3] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
                   >
                     <span>全部学者</span>
                     <ArrowRight className="w-3 h-3" />
@@ -1214,23 +1832,28 @@ export const Home: React.FC<HomeProps> = ({
                 </div>
 
                 {recentAuthors.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {recentAuthors.map((author) => (
                       <div
                         key={author.id}
-                        className="p-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 transition-colors space-y-1.5"
+                        className="p-3 rounded-[16px] bg-[#F5F5F7]/70 hover:bg-[#F5F5F7] border border-black/[0.04] transition-colors space-y-1.5"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="font-semibold text-xs text-zinc-900">{author.name}</div>
+                          <div className="font-semibold text-xs text-[#1D1D1F] flex items-center gap-1.5 flex-wrap">
+                            <span>{author.name}</span>
+                            {author.nameCn && (
+                              <span className="text-[10px] text-[#6E6E73] font-normal">({author.nameCn})</span>
+                            )}
+                          </div>
                           <button
                             onClick={() => onViewAuthorPapers(author.name)}
-                            className="text-[11px] text-[#0F52BA] hover:underline font-medium shrink-0 cursor-pointer"
+                            className="text-[11px] text-[#0071E3] hover:underline font-medium shrink-0 cursor-pointer"
                           >
                             查看论文
                           </button>
                         </div>
                         {author.institution && (
-                          <div className="text-[11px] text-zinc-500 truncate">
+                          <div className="text-[11px] text-[#6E6E73] truncate">
                             {author.institution.name}
                           </div>
                         )}
@@ -1239,7 +1862,7 @@ export const Home: React.FC<HomeProps> = ({
                             {author.tags.slice(0, 2).map((t) => (
                               <span
                                 key={t}
-                                className="px-1.5 py-0.2 rounded bg-white text-zinc-600 text-[10px] border border-zinc-200"
+                                className="px-1.5 py-0.2 rounded bg-white text-[#6E6E73] text-[10px] border border-black/[0.06]"
                               >
                                 #{t}
                               </span>
@@ -1250,24 +1873,24 @@ export const Home: React.FC<HomeProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-zinc-400 py-3 text-center">暂无学者更新</p>
+                  <p className="text-xs text-[#86868B] py-3 text-center">暂无学者更新</p>
                 )}
               </div>
 
               {/* Widget 2: 即将截止学术活动与征稿 (Upcoming Academic Deadlines) */}
-              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-2xs space-y-3.5">
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+              <div className="bg-white rounded-[22px] p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-3.5">
+                <div className="flex items-center justify-between pb-2.5 border-b border-black/[0.04]">
                   <div className="flex items-center gap-2">
-                    <div className="p-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+                    <div className="p-1 rounded-lg bg-rose-500/10 text-rose-600">
                       <CalendarClock className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="font-editorial-heading font-bold text-sm text-zinc-900">
+                    <h3 className="font-editorial-heading font-bold text-sm text-[#1D1D1F]">
                       即将截止活动与征稿
                     </h3>
                   </div>
                   <button
                     onClick={() => onNavigateToTab('events')}
-                    className="text-xs text-[#0F52BA] hover:underline font-semibold flex items-center gap-0.5"
+                    className="text-xs text-[#0071E3] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
                   >
                     <span>全部活动</span>
                     <ArrowRight className="w-3 h-3" />
@@ -1275,7 +1898,7 @@ export const Home: React.FC<HomeProps> = ({
                 </div>
 
                 {upcomingEvents.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {upcomingEvents.map((evt) => {
                       const days = Math.ceil(
                         (new Date(evt.deadline).getTime() - new Date().getTime()) /
@@ -1285,49 +1908,49 @@ export const Home: React.FC<HomeProps> = ({
                       return (
                         <div
                           key={evt.id}
-                          className="p-3 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 transition-colors space-y-1.5"
+                          className="p-3 rounded-[16px] bg-[#F5F5F7]/70 hover:bg-[#F5F5F7] border border-black/[0.04] transition-colors space-y-1.5"
                         >
                           <div className="flex items-start justify-between gap-2">
-                            <span className="font-semibold text-xs text-zinc-900 line-clamp-1">
+                            <span className="font-semibold text-xs text-[#1D1D1F] line-clamp-1">
                               {evt.title}
                             </span>
                             <span
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 font-mono ${
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md shrink-0 font-mono ${
                                 isUrgent
-                                  ? 'bg-rose-100 text-rose-800'
-                                  : 'bg-zinc-200 text-zinc-700'
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  : 'bg-black/[0.05] text-[#1D1D1F]'
                               }`}
                             >
                               {days <= 0 ? '今日截止' : `剩余 ${days} 天`}
                             </span>
                           </div>
-                          <div className="text-[11px] text-zinc-500 flex items-center justify-between">
+                          <div className="text-[11px] text-[#6E6E73] flex items-center justify-between">
                             <span className="truncate">{evt.host}</span>
-                            <span className="font-mono text-zinc-400">{evt.deadline}</span>
+                            <span className="font-mono text-[#86868B]">{evt.deadline}</span>
                           </div>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <p className="text-xs text-zinc-400 py-3 text-center">暂无临期征稿活动</p>
+                  <p className="text-xs text-[#86868B] py-3 text-center">暂无临期征稿活动</p>
                 )}
               </div>
 
               {/* Widget 3: 最新核心期刊动态 (Core Law Reviews & Pinned Journals) */}
-              <div className="bg-white rounded-2xl p-5 border border-zinc-200 shadow-2xs space-y-3.5">
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+              <div className="bg-white rounded-[22px] p-5 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-3.5">
+                <div className="flex items-center justify-between pb-2.5 border-b border-black/[0.04]">
                   <div className="flex items-center gap-2">
-                    <div className="p-1 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                    <div className="p-1 rounded-lg bg-[#0071E3]/10 text-[#0071E3]">
                       <Library className="w-3.5 h-3.5" />
                     </div>
-                    <h3 className="font-editorial-heading font-bold text-sm text-zinc-900">
+                    <h3 className="font-editorial-heading font-bold text-sm text-[#1D1D1F]">
                       核心期刊动态
                     </h3>
                   </div>
                   <button
                     onClick={() => onNavigateToTab('journals')}
-                    className="text-xs text-[#0F52BA] hover:underline font-semibold flex items-center gap-0.5"
+                    className="text-xs text-[#0071E3] hover:underline font-semibold flex items-center gap-0.5 cursor-pointer"
                   >
                     <span>核心期刊架</span>
                     <ArrowRight className="w-3 h-3" />
@@ -1335,29 +1958,30 @@ export const Home: React.FC<HomeProps> = ({
                 </div>
 
                 {featuredJournals.length > 0 ? (
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {featuredJournals.map((j) => (
                       <div
                         key={j.id}
-                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-zinc-50 hover:bg-zinc-100 border border-zinc-100 transition-colors"
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-[14px] bg-[#F5F5F7]/70 hover:bg-[#F5F5F7] border border-black/[0.04] transition-colors"
                       >
                         <div className="space-y-0.5 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 bg-zinc-200 text-zinc-800 rounded">
+                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 bg-black/[0.05] text-[#1D1D1F] rounded">
                               {j.abbreviation}
                             </span>
-                            <span className="text-xs font-semibold text-zinc-900 truncate">
+                            <span className="text-xs font-semibold text-[#1D1D1F] truncate">
                               {j.nameCn}
                             </span>
                           </div>
-                          <div className="text-[10px] text-zinc-400 font-mono">
-                            {j.currentIssue}
+                          <div className="text-[10px] text-[#0071E3] font-mono font-medium flex items-center gap-1">
+                            <span>本周更新：{j.updatedIssue}</span>
                           </div>
                         </div>
 
                         <button
-                          onClick={() => onFilterByJournal(j.nameOriginal)}
-                          className="px-2.5 py-1 bg-white hover:bg-zinc-200 border border-zinc-200 text-zinc-800 text-[11px] font-semibold rounded-md shrink-0 transition-colors cursor-pointer"
+                          onClick={() => onFilterByJournal(j.nameOriginal, j.updatedIssue)}
+                          className="px-2.5 py-1 bg-white hover:bg-[#0071E3]/5 border border-black/[0.06] hover:border-[#0071E3]/30 text-[#0071E3] text-[11px] font-semibold rounded-lg shrink-0 transition-colors cursor-pointer"
+                          title={`跳转到文献库筛选 ${j.nameCn} ${j.updatedIssue}`}
                         >
                           查看收录
                         </button>
@@ -1365,12 +1989,21 @@ export const Home: React.FC<HomeProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-zinc-400 py-3 text-center">暂无核心期刊更新</p>
+                  <p className="text-xs text-[#86868B] py-3 text-center">暂无核心期刊更新</p>
                 )}
               </div>
             </div>
           </div>
         </section>
+      )}
+
+      {/* Article Detail Card Modal */}
+      {selectedArticleModal && (
+        <ArticleModal
+          article={selectedArticleModal}
+          onClose={() => setSelectedArticleModal(null)}
+          onToggleSave={onToggleSave ? (id) => onToggleSave(id, 'article') : () => {}}
+        />
       )}
     </div>
   );

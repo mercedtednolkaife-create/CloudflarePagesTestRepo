@@ -5,7 +5,7 @@ import { JournalShelf } from '../components/JournalShelf';
 interface JournalsProps {
   journals?: Journal[];
   onTogglePin?: (id: string) => void;
-  onFilterByJournal?: (journalName: string) => void;
+  onFilterByJournal?: (journalName: string, issueOrVolume?: string) => void;
   onShowToast?: (text: string, type?: 'success' | 'error') => void;
 }
 

@@ -116,7 +116,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               }`}
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>文献流</span>
+              <span>文献库</span>
             </button>
 
             <button

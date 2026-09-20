@@ -8,10 +8,9 @@ DELETE FROM papers;
 DELETE FROM authors;
 DELETE FROM events;
 DELETE FROM institutions;
+DELETE FROM wishlist_votes;
 DELETE FROM wishlists;
 DELETE FROM journals;
-DELETE FROM articles;
-DELETE FROM academic_events;
 DELETE FROM users;
 
 -- 1. Users (预置测试账号)
@@ -133,16 +132,16 @@ INSERT INTO wishlists (id, user_id, entity_type, entity_name, status, submitter,
 ('wish-seed-3', 'usr-admin', '论文', 'EU AI Act Enforcement Guidelines 2026 全文深度评注', '已安排', '陈研究员 (社科院)', '建议上线欧盟人工智能法案执法实施细则的逐条教义学解析。', 24, '专家团队已启动撰写，预计下月刊发。'),
 ('wish-seed-4', 'usr-demo', '数据库/平台', 'Curia 欧盟法院判例数据库检索插件', '待处理', '赵博士后 (中国政法大学)', '支持一键直达 CJEU 前沿判例全文并自动生成 GB/T 7714 题录。', 9, '评估技术接口可行性中。');
 
--- 10. Articles (兼容旧数据)
-INSERT INTO articles (id, title_cn, title_original, authors, author_affiliation, journal_name, journal_abbr, volume_issue, publish_date, tags, abstract_cn, abstract_original, doi, citations_count, saved, reading_time, jurisdiction, featured) VALUES
-('art-1', '生成式人工智能时代的注意义务与算法侵权责任重构', 'Standard of Care and Algorithmic Tort Liability in the Era of Generative AI', '["Prof. Jonathan Zittrain", "Dr. Elena Rostova"]', '哈佛大学法学院 Berkman Klein 中心', 'Harvard Law Review', 'HLR', 'Vol. 138, No. 3', '2026-08-15', '["人工智能法", "侵权责任", "民法", "算法治理"]', '本文探讨当基础模型具备自主生成内容与决策辅助能力时，传统过错侵权中的“理性人”标准如何向“算法注意义务”演进。', 'This Article examines the doctrinal evolution of the reasonable person standard toward algorithmic duty of care when foundational models operate autonomously.', '10.1145/hlr.2026.138.3.892', 142, 1, '22 分钟', 'US', 1),
-('art-2', '跨国数据主权与域外管辖冲突：以欧盟《数据法案》为中心的宪法反思', 'Transnational Data Sovereignty and Conflicts of Extraterritorial Jurisdiction: A Constitutional Critique of the EU Data Act', '["Prof. Mireille Hildebrandt"]', '布鲁塞尔自由大学 / 鲁汶大学法学院', 'Common Market Law Review', 'CML Rev', 'Vol. 63, Issue 2', '2026-07-28', '["国际法", "宪法", "数据治理", "欧盟法"]', '文章深入分析欧盟《数据法案》(Data Act) 与《AI法案》在全球数据流通中所构建的长臂管辖机制。', 'This paper provides a critical constitutional analysis of extraterritorial reach under the EU Data Act.', '10.54648/cola2026028', 88, 0, '18 分钟', 'EU', 1);
+-- 10. Wishlist Votes (心愿单投票记录)
+INSERT INTO wishlist_votes (id, user_id, wishlist_id) VALUES
+('wv-1', 'usr-admin', 'wish-seed-1'),
+('wv-2', 'usr-scholar', 'wish-seed-1'),
+('wv-3', 'usr-demo', 'wish-seed-1'),
+('wv-4', 'usr-scholar', 'wish-seed-2'),
+('wv-5', 'usr-admin', 'wish-seed-3'),
+('wv-6', 'usr-demo', 'wish-seed-3');
 
--- 11. Academic Events (兼容旧数据)
-INSERT INTO academic_events (id, title, host, type, deadline, event_date, location, tags, description, submission_url, fee_info) VALUES
-('evt-legacy-1', '【特刊征稿】耶鲁法学院：全球人工智能法律规制与技术主权青年学者论坛', '耶鲁法学院信息社会项目 (ISP)', '特刊征稿', '2026-09-02', '2026-11-15', '美国·纽黑文 / 线上双轨', '["人工智能法", "青年学者", "SSCI特刊"]', '征集关于基础大模型治理、算法透明度、跨境算力监管方向的高质量全英文稿件。', 'https://law.yale.edu/isp/cfp-2026-ai', '入选者提供全额差旅补助');
-
--- 12. Global Search 索引初始化
+-- 11. Global Search 索引初始化
 INSERT INTO global_search (entity_type, entity_id, title, content)
 SELECT 'journal', id, name_cn || ' (' || name || ')', description || ' ' || institution || ' ' || tags FROM journals;
 

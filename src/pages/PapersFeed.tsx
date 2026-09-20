@@ -3,6 +3,7 @@ import { Paper, Journal, PaginationMeta } from '../types';
 import { fetchPapers, fetchJournals, toggleBookmark } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Pagination } from '../components/Pagination';
+import { copyToClipboard } from '../lib/clipboard';
 import {
   BookOpen,
   Star,
@@ -27,7 +28,9 @@ import {
   Clock,
   Globe,
   Award,
+  ArrowRight,
 } from 'lucide-react';
+import { PaperDetailCardModal } from '../components/PaperDetailCardModal';
 
 export interface PapersFeedProps {
   filterAuthor?: string | null;
@@ -129,6 +132,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
   const [langMode, setLangMode] = useState<'bilingual' | 'zh' | 'en'>('bilingual');
   const [expandedAbstracts, setExpandedAbstracts] = useState<Record<string, boolean>>({});
   const [expandedCitationId, setExpandedCitationId] = useState<string | null>(null);
+  const [selectedPaperForCard, setSelectedPaperForCard] = useState<Paper | null>(null);
 
   // Sync props to state if props change externally
   useEffect(() => {
@@ -369,27 +373,30 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
   };
 
   // Copy BibTeX citation helper
-  const handleCopyBibTeX = (paper: Paper) => {
+  const handleCopyBibTeX = async (paper: Paper) => {
     const firstAuthor = paper.authors[0]?.split(' ').pop() || 'Scholar';
     const year = paper.publishedAt ? paper.publishedAt.split('-')[0] : '2026';
     const bibtex = `@article{${firstAuthor.toLowerCase()}${year},\n  author = {${paper.authors.join(' and ')}},\n  title = {${paper.title}},\n  journal = {${paper.journalName}},\n  year = {${year}},\n  url = {${paper.url}}\n}`;
 
-    navigator.clipboard.writeText(bibtex);
+    await copyToClipboard(bibtex);
     setCopiedId(paper.id);
     if (onShowToast) onShowToast('已复制标准 BibTeX 引证格式到剪贴板！', 'success');
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  // Copy Bluebook citation helper (utilizing firstPage for citation without direct card display)
-  const handleCopyCitation = (paper: Paper) => {
+  // Copy Bluebook citation helper (utilizing firstPage for citation, strictly without DOI)
+  const handleCopyCitation = async (paper: Paper) => {
     const volNum = paper.volume ? paper.volume.replace(/Vol\.?\s*/i, '').trim() : '';
     const pagePart = paper.firstPage ? ` ${paper.firstPage}` : '';
     const year = paper.publicationYear || (paper.publishedAt ? paper.publishedAt.slice(0, 4) : '2026');
+    const authorsStr = paper.authors && paper.authors.length > 0 ? paper.authors.join(' & ') : 'Anonymous';
     const citation =
-      paper.recommendedCitation ||
-      `${paper.authors.join(' & ')}, ${paper.title}, ${volNum ? `${volNum} ` : ''}${paper.journalAbbr || paper.journalName}${pagePart} (${year}).${paper.doi ? ` DOI: ${paper.doi}` : ''}`;
+      (paper.recommendedCitation
+        ? paper.recommendedCitation.replace(/,\s*DOI:.*$/i, '').replace(/https?:\/\/doi\.org\/[^\s)]+/i, '').trim()
+        : null) ||
+      `${authorsStr}, ${paper.title}, ${volNum ? `${volNum} ` : ''}${paper.journalAbbr || paper.journalName}${pagePart} (${year}).`;
 
-    navigator.clipboard.writeText(citation);
+    await copyToClipboard(citation);
     setCopiedCitationId(paper.id);
     if (onShowToast) onShowToast('已复制 Bluebook 规范引注格式到剪贴板！', 'success');
     setTimeout(() => setCopiedCitationId(null), 2500);
@@ -408,9 +415,10 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
     return papers.filter((p) => {
       // 1. Author filter
       if (filterAuthor) {
-        const matchesAuthor = p.authors.some((a) =>
-          a.toLowerCase().includes(filterAuthor.toLowerCase())
-        );
+        const matchesAuthor = (p.authors || []).some((a) => {
+          const str = typeof a === 'string' ? a : ((a as any)?.name || (a as any)?.nameCn || '');
+          return str.toLowerCase().includes(filterAuthor.toLowerCase());
+        });
         if (!matchesAuthor) return false;
       }
 
@@ -441,7 +449,13 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
 
       if (activeVolume) {
         const { volume } = extractVolAndIssue(p);
-        if (!volume || volume.toLowerCase() !== activeVolume.toLowerCase()) {
+        const normTarget = activeVolume.replace(/\D/g, '');
+        const normVol = volume ? volume.replace(/\D/g, '') : '';
+        const matchesVol =
+          (normTarget && normVol && normTarget === normVol) ||
+          (volume && volume.toLowerCase() === activeVolume.toLowerCase()) ||
+          (p.volumeIssue && p.volumeIssue.toLowerCase().includes(activeVolume.toLowerCase()));
+        if (!matchesVol) {
           return false;
         }
       }
@@ -456,12 +470,18 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
 
       if (activeIssue) {
         const { issue } = extractVolAndIssue(p);
-        if (!issue || issue.toLowerCase() !== activeIssue.toLowerCase()) {
+        const normTarget = activeIssue.replace(/\D/g, '');
+        const normIss = issue ? issue.replace(/\D/g, '') : '';
+        const matchesIss =
+          (normTarget && normIss && normTarget === normIss) ||
+          (issue && issue.toLowerCase() === activeIssue.toLowerCase()) ||
+          (p.volumeIssue && p.volumeIssue.toLowerCase().includes(activeIssue.toLowerCase()));
+        if (!matchesIss) {
           return false;
         }
       }
 
-      // 5. Paper Title specific filter (e.g. from Home "在文献流中查看")
+      // 5. Paper Title specific filter (e.g. from Home "在文献库中查看")
       if (filterPaperTitle && filterPaperTitle.trim()) {
         const titleTarget = filterPaperTitle.trim().toLowerCase();
         const matchesTitle = p.title.toLowerCase().includes(titleTarget);
@@ -480,7 +500,10 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
           (p.journalNameCn && p.journalNameCn.toLowerCase().includes(q)) ||
           (p.categoryCn && p.categoryCn.toLowerCase().includes(q)) ||
           (p.doi && p.doi.toLowerCase().includes(q)) ||
-          p.authors.some((a) => a.toLowerCase().includes(q)) ||
+          (p.authors || []).some((a) => {
+            const str = typeof a === 'string' ? a : ((a as any)?.name || (a as any)?.nameCn || '');
+            return str.toLowerCase().includes(q);
+          }) ||
           (p.authorsDetail && p.authorsDetail.some((ad) => (ad.nameCn && ad.nameCn.includes(q)) || (ad.institution && ad.institution.toLowerCase().includes(q))));
         if (!matchesSearch) return false;
       }
@@ -519,11 +542,8 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
               <span>Global Literature Pipeline · D1 Schema</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-zinc-900 tracking-tight">
-              域外法学文献信息流 (Papers Feed)
+              域外法学文献库 (Literature Library)
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-600 max-w-2xl font-sans">
-              实时聚合 SSCI 顶刊论文与 SSRN 预印本，支持期刊名、卷(Vol)、期(Issue)多级联动过滤与个人书签置顶。
-            </p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -872,13 +892,6 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                             </span>
                           )}
 
-                          {paper.readingTime && (
-                            <span className="text-[11px] text-[#86868B] font-mono flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-[#86868B]" />
-                              {paper.readingTime}
-                            </span>
-                          )}
-
                           {paper.citationsCount !== undefined && paper.citationsCount > 0 && (
                             <span className="px-2.5 py-0.5 rounded-full bg-black/[0.03] text-[#6E6E73] text-[10px] font-semibold font-mono border border-black/[0.04]">
                               被引 {paper.citationsCount}
@@ -893,32 +906,38 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                           )}
                         </div>
 
-                        {/* Paper Title with Bilingual Switching */}
+                        {/* Paper Title with Bilingual Switching - Click to view full information card */}
                         <div>
                           {langMode === 'bilingual' ? (
                             <>
-                              <h2 className="text-base sm:text-lg font-bold text-zinc-900 font-editorial-heading hover:text-[#0F52BA] transition-colors leading-snug">
-                                <a href={paper.url} target="_blank" rel="noopener noreferrer">
-                                  {paper.titleCn || paper.title}
-                                </a>
+                              <h2
+                                onClick={() => setSelectedPaperForCard(paper)}
+                                className="text-base sm:text-lg font-bold text-[#1D1D1F] font-editorial-heading hover:text-[#0071E3] transition-colors leading-snug cursor-pointer"
+                                title="点击查看完整学术信息卡片"
+                              >
+                                {paper.titleCn || paper.title}
                               </h2>
                               {paper.titleCn && paper.titleCn !== paper.title && (
-                                <div className="text-xs sm:text-sm text-zinc-600 font-serif italic mt-1 leading-snug">
+                                <div className="text-xs sm:text-sm text-[#6E6E73] font-serif italic mt-1 leading-snug">
                                   {paper.title}
                                 </div>
                               )}
                             </>
                           ) : langMode === 'zh' ? (
-                            <h2 className="text-base sm:text-lg font-bold text-zinc-900 font-editorial-heading hover:text-[#0F52BA] transition-colors leading-snug">
-                              <a href={paper.url} target="_blank" rel="noopener noreferrer">
-                                {paper.titleCn || paper.title}
-                              </a>
+                            <h2
+                              onClick={() => setSelectedPaperForCard(paper)}
+                              className="text-base sm:text-lg font-bold text-[#1D1D1F] font-editorial-heading hover:text-[#0071E3] transition-colors leading-snug cursor-pointer"
+                              title="点击查看完整学术信息卡片"
+                            >
+                              {paper.titleCn || paper.title}
                             </h2>
                           ) : (
-                            <h2 className="text-base sm:text-lg font-bold text-zinc-900 font-editorial-heading hover:text-[#0F52BA] transition-colors leading-snug">
-                              <a href={paper.url} target="_blank" rel="noopener noreferrer">
-                                {paper.title}
-                              </a>
+                            <h2
+                              onClick={() => setSelectedPaperForCard(paper)}
+                              className="text-base sm:text-lg font-bold text-[#1D1D1F] font-editorial-heading hover:text-[#0071E3] transition-colors leading-snug cursor-pointer"
+                              title="点击查看完整学术信息卡片"
+                            >
+                              {paper.title}
                             </h2>
                           )}
                         </div>
@@ -932,7 +951,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                               <span key={a.id || idx} className="inline-flex items-center gap-1">
                                 <button
                                   onClick={() => onSelectAuthor && onSelectAuthor(a.name)}
-                                  className="text-zinc-700 hover:text-[#0F52BA] hover:underline font-medium cursor-pointer"
+                                  className="text-zinc-700 hover:text-[#0071E3] hover:underline font-medium cursor-pointer"
                                 >
                                   {a.nameCn ? `${a.nameCn} (${a.name})` : a.name}
                                 </button>
@@ -960,72 +979,26 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                           )}
                         </div>
 
-                        {/* Abstract preview according to langMode */}
-                        {langMode === 'bilingual' ? (
-                          (paper.abstractCn || paper.abstract) && (
-                            <div className="space-y-2.5 bg-[#F5F5F7] p-4 rounded-2xl border border-black/[0.03] text-xs sm:text-sm">
-                              {paper.abstractCn && (
-                                <div className="space-y-1">
-                                  <div className="text-[11px] font-medium text-[#0071E3] flex items-center gap-1.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#0071E3]"></span>
-                                    <span>中文要点与摘要</span>
-                                  </div>
-                                  <p className={`text-[#1D1D1F] leading-relaxed font-sans ${expandedAbstracts[paper.id] ? '' : 'line-clamp-2'}`}>
-                                    {paper.abstractCn}
-                                  </p>
-                                </div>
-                              )}
-                              {paper.abstract && (
-                                <div className={`space-y-1 ${paper.abstractCn ? 'pt-2.5 border-t border-black/[0.06]' : ''}`}>
-                                  {paper.abstractCn && (
-                                    <div className="text-[10px] font-medium text-[#86868B] uppercase tracking-wider">
-                                      Original English Abstract
-                                    </div>
-                                  )}
-                                  <p className={`text-[#6E6E73] leading-relaxed font-sans ${expandedAbstracts[paper.id] ? '' : 'line-clamp-2'}`}>
-                                    {paper.abstract}
-                                  </p>
-                                </div>
-                              )}
-                              <button
-                                onClick={() => toggleAbstract(paper.id)}
-                                className="text-[11px] font-medium text-[#0071E3] hover:underline flex items-center gap-0.5 pt-0.5 cursor-pointer"
-                              >
-                                <span>{expandedAbstracts[paper.id] ? '收起摘要' : '展开完整双语摘要'}</span>
-                                {expandedAbstracts[paper.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              </button>
+                        {/* Abstract preview: Strictly Chinese abstract only on the card */}
+                        {(paper.abstractCn || paper.abstract) && (
+                          <div className="bg-[#F5F5F7] p-4 rounded-2xl border border-black/[0.03] text-xs sm:text-sm space-y-2">
+                            <div className="text-[11px] font-medium text-[#0071E3] flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#0071E3]"></span>
+                              <span>中文摘要</span>
                             </div>
-                          )
-                        ) : langMode === 'zh' ? (
-                          (paper.abstractCn || paper.abstract) && (
-                            <div className="bg-[#F5F5F7] p-4 rounded-2xl border border-black/[0.03]">
-                              <p className={`text-xs sm:text-sm text-[#1D1D1F] leading-relaxed font-sans ${expandedAbstracts[paper.id] ? '' : 'line-clamp-3'}`}>
-                                {paper.abstractCn || paper.abstract}
-                              </p>
-                              <button
-                                onClick={() => toggleAbstract(paper.id)}
-                                className="text-[11px] font-medium text-[#0071E3] hover:underline flex items-center gap-0.5 pt-1 cursor-pointer"
-                              >
-                                <span>{expandedAbstracts[paper.id] ? '收起' : '展开全文摘要'}</span>
-                                {expandedAbstracts[paper.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              </button>
-                            </div>
-                          )
-                        ) : (
-                          paper.abstract && (
-                            <div className="bg-[#F5F5F7] p-4 rounded-2xl border border-black/[0.03]">
-                              <p className={`text-xs sm:text-sm text-[#6E6E73] leading-relaxed font-sans ${expandedAbstracts[paper.id] ? '' : 'line-clamp-3'}`}>
-                                {paper.abstract}
-                              </p>
-                              <button
-                                onClick={() => toggleAbstract(paper.id)}
-                                className="text-[11px] font-medium text-[#0071E3] hover:underline flex items-center gap-0.5 pt-1 cursor-pointer"
-                              >
-                                <span>{expandedAbstracts[paper.id] ? 'Collapse' : 'Expand full abstract'}</span>
-                                {expandedAbstracts[paper.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                              </button>
-                            </div>
-                          )
+                            <p className="text-[#1D1D1F] leading-relaxed font-sans line-clamp-3 select-text">
+                              {paper.abstractCn || paper.abstract}
+                            </p>
+                            <button
+                              onClick={() => setSelectedPaperForCard(paper)}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0071E3] hover:text-[#005bb5] transition-colors cursor-pointer pt-1"
+                              title="查看文章完整信息卡片（含中外文双语摘要及预计研读时间）"
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                              <span>查看完整信息卡片</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
                         )}
 
                         {/* Tags */}
@@ -1047,8 +1020,18 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                           </div>
                         )}
 
-                        {/* Full-Text, DOI & Citation Action Bar */}
+                        {/* Full-Text, Card & Citation Action Bar (Strictly NO DOI displayed) */}
                         <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-black/[0.04]">
+                          {/* Primary Action: View Full Information Card */}
+                          <button
+                            onClick={() => setSelectedPaperForCard(paper)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0071E3] hover:bg-[#005bb5] text-white text-xs font-semibold transition-all cursor-pointer shadow-xs"
+                            title="打开完整学术信息卡片"
+                          >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span>完整信息卡片</span>
+                          </button>
+
                           {/* PDF Direct Download Link */}
                           {paper.pdfUrl && (
                             <a
@@ -1077,77 +1060,20 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                             </a>
                           )}
 
-                          {/* DOI Link */}
-                          {(paper.doiUrl || paper.doi) && (
-                            <a
-                              href={paper.doiUrl || `https://doi.org/${paper.doi}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-black/[0.03] hover:bg-black/[0.06] border border-black/[0.04] text-[#6E6E73] text-[11px] font-mono hover:text-[#0071E3] transition-all cursor-pointer"
-                              title="解析官方 DOI"
-                            >
-                              <Globe className="w-3 h-3 text-[#86868B]" />
-                              <span>DOI: {paper.doi || paper.doiUrl?.replace('https://doi.org/', '')}</span>
-                            </a>
-                          )}
-
-                          {/* View Standard Citation Toggle */}
+                          {/* 一键复制法学引注 */}
                           <button
-                            onClick={() =>
-                              setExpandedCitationId((prev) => (prev === paper.id ? null : paper.id))
-                            }
-                            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-                              expandedCitationId === paper.id
-                                ? 'bg-[#0071E3] text-white border-[#0071E3] shadow-xs'
-                                : 'bg-black/[0.04] hover:bg-black/[0.08] border-black/[0.04] text-[#1D1D1F]'
-                            }`}
-                            title="查看/复制 Bluebook 规范法学引注"
+                            onClick={() => handleCopyCitation(paper)}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/[0.04] hover:bg-black/[0.08] border border-black/[0.04] text-[#1D1D1F] text-xs font-medium transition-all cursor-pointer"
+                            title="一键复制 Bluebook 规范法学引注"
                           >
-                            <Quote className={`w-3.5 h-3.5 ${expandedCitationId === paper.id ? 'text-white' : 'text-[#0071E3]'}`} />
-                            <span>法学引注 (Bluebook)</span>
-                          </button>
-
-                          {/* Copy BibTeX Button */}
-                          <button
-                            onClick={() => handleCopyBibTeX(paper)}
-                            className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-black/[0.04] hover:bg-black/[0.08] border border-black/[0.04] text-[#6E6E73] hover:text-[#1D1D1F] text-xs font-medium transition-all cursor-pointer"
-                            title="复制 BibTeX 引用代码"
-                          >
-                            {copiedId === paper.id ? (
+                            {copiedCitationId === paper.id ? (
                               <Check className="w-3.5 h-3.5 text-[#34C759]" />
                             ) : (
-                              <Copy className="w-3.5 h-3.5 text-[#86868B]" />
+                              <Quote className="w-3.5 h-3.5 text-[#0071E3]" />
                             )}
-                            <span>{copiedId === paper.id ? '已复制 BibTeX' : 'BibTeX'}</span>
+                            <span>{copiedCitationId === paper.id ? '已复制法学引注' : '一键复制法学引注'}</span>
                           </button>
                         </div>
-
-                        {/* Inline Standard Citation Box */}
-                        {expandedCitationId === paper.id && (
-                          <div className="p-3.5 bg-[#0071E3]/5 border border-[#0071E3]/15 rounded-[18px] text-xs space-y-2 animate-in fade-in duration-150">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-[#1D1D1F] flex items-center gap-1.5">
-                                <Quote className="w-3.5 h-3.5 text-[#0071E3]" />
-                                <span>Bluebook 标准引注规范:</span>
-                              </span>
-                              <button
-                                onClick={() => handleCopyCitation(paper)}
-                                className="text-[#0071E3] hover:underline font-medium flex items-center gap-1 cursor-pointer text-xs"
-                              >
-                                {copiedCitationId === paper.id ? (
-                                  <Check className="w-3 h-3 text-[#34C759]" />
-                                ) : (
-                                  <Copy className="w-3 h-3" />
-                                )}
-                                <span>{copiedCitationId === paper.id ? '已复制到剪贴板' : '一键复制引注'}</span>
-                              </button>
-                            </div>
-                            <div className="p-3 bg-white rounded-xl border border-black/[0.06] font-mono text-[11px] text-[#1D1D1F] select-all leading-relaxed shadow-xs">
-                              {paper.recommendedCitation ||
-                                `${paper.authors.join(' & ')}, ${paper.title}, ${paper.volumeIssue || ''} ${paper.journalAbbr || paper.journalName} (2026).`}
-                            </div>
-                          </div>
-                        )}
                       </div>
 
                       {/* Actions Right Column */}
@@ -1165,16 +1091,16 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                           <Star className={`w-4 h-4 ${paper.isBookmarked ? 'fill-white' : ''}`} />
                         </button>
 
-                        {/* Copy BibTeX Button */}
+                        {/* 一键复制法学引注 */}
                         <button
-                          onClick={() => handleCopyBibTeX(paper)}
+                          onClick={() => handleCopyCitation(paper)}
                           className="p-2.5 bg-black/[0.04] hover:bg-black/[0.08] border border-black/[0.04] text-[#6E6E73] hover:text-[#1D1D1F] rounded-full text-xs transition-all cursor-pointer flex items-center justify-center"
-                          title="一键复制 BibTeX 引证"
+                          title="一键复制 Bluebook 规范法学引注"
                         >
-                          {copiedId === paper.id ? (
+                          {copiedCitationId === paper.id ? (
                             <Check className="w-4 h-4 text-[#34C759]" />
                           ) : (
-                            <Copy className="w-4 h-4 text-[#86868B]" />
+                            <Quote className="w-4 h-4 text-[#0071E3]" />
                           )}
                         </button>
 
@@ -1224,6 +1150,21 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Full Information Card Modal */}
+      {selectedPaperForCard && (
+        <PaperDetailCardModal
+          paper={selectedPaperForCard}
+          onClose={() => setSelectedPaperForCard(null)}
+          onToggleBookmark={(p) => handleToggleBookmark(p)}
+          onSelectAuthor={onSelectAuthor}
+          onSelectTag={(t) => {
+            setSelectedTag(t);
+            setPage(1);
+          }}
+          onShowToast={onShowToast}
+        />
       )}
     </div>
   );

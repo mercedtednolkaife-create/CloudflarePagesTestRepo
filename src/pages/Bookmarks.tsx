@@ -41,14 +41,14 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
     setIsLoading(true);
     try {
       const [papersRes, authorsRes, journalsRes] = await Promise.all([
-        fetchPapers(undefined, 1, 100),
-        fetchAuthors(1, 100),
-        fetchJournals(1, 100),
+        fetchPapers(undefined, 1, 100, { bookmarked: true }),
+        fetchAuthors(1, 100, { bookmarked: true }),
+        fetchJournals({ page: 1, pageSize: 100, pinned: true }),
       ]);
 
-      const savedPapers = papersRes.papers.filter((p) => p.isBookmarked);
-      const savedAuthors = authorsRes.authors.filter((a) => a.isBookmarked);
-      const savedJournals = journalsRes.journals.filter((j) => j.isPinned);
+      const savedPapers = papersRes.papers;
+      const savedAuthors = authorsRes.authors;
+      const savedJournals = journalsRes.journals;
 
       setPapers(savedPapers);
       setAuthors(savedAuthors);
@@ -120,12 +120,14 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
     }
 
     const bibtexEntries = selectedPapers.map((paper) => {
-      const firstAuthor = paper.authors[0]?.split(' ').pop() || 'Scholar';
+      const rawFirst = paper.authors && paper.authors.length > 0 ? (typeof paper.authors[0] === 'string' ? paper.authors[0] : (paper.authors[0] as any)?.name || 'Scholar') : 'Scholar';
+      const firstAuthor = rawFirst.split(' ').pop() || 'Scholar';
       const year = paper.publishedAt ? paper.publishedAt.split('-')[0] : '2026';
       const safeKey = `${firstAuthor.toLowerCase()}${year}_${paper.id.replace(/[^a-zA-Z0-9]/g, '')}`;
+      const authorsStr = (paper.authors || []).map((a) => typeof a === 'string' ? a : (a as any)?.name || (a as any)?.nameCn || 'Scholar').join(' and ');
 
       return `@article{${safeKey},
-  author    = {${paper.authors.join(' and ')}},
+  author    = {${authorsStr}},
   title     = {${paper.title}},
   journal   = {${paper.journalName}},
   year      = {${year}},
@@ -328,7 +330,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                                 </a>
                               </h3>
                               <div className="text-[11px] text-zinc-500">
-                                <span>著者: {paper.authors.join(' · ')}</span>
+                                <span>著者: {(paper.authors || []).map((a) => typeof a === 'string' ? a : (a as any)?.name || (a as any)?.nameCn || '学者').join(' · ')}</span>
                               </div>
                             </div>
                           </div>
@@ -360,7 +362,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                 </>
               ) : (
                 <div className="py-8 text-center text-xs text-zinc-400">
-                  暂未收藏任何文献，可在文献流中点击星标进行收藏。
+                  暂未收藏任何文献，可在文献库中点击星标进行收藏。
                 </div>
               )}
             </div>
@@ -382,7 +384,14 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                       className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/60 flex items-center justify-between gap-3"
                     >
                       <div className="space-y-1">
-                        <div className="text-xs font-bold text-zinc-900">{author.name}</div>
+                        <div className="text-xs font-bold text-zinc-900 flex items-center gap-1.5 flex-wrap">
+                          <span>{author.name}</span>
+                          {author.nameCn && (
+                            <span className="text-[10px] text-zinc-500 font-normal">
+                              ({author.nameCn})
+                            </span>
+                          )}
+                        </div>
                         {author.institution && (
                           <div className="text-[10px] text-zinc-500">{author.institution.name}</div>
                         )}

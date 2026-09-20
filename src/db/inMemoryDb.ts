@@ -148,6 +148,13 @@ export interface WishlistTable {
   created_at: string;
 }
 
+export interface WishlistVoteTable {
+  id: string;
+  user_id: string;
+  wishlist_id: string;
+  created_at: string;
+}
+
 export interface ArticleTable {
   id: string;
   title_cn: string;
@@ -1058,6 +1065,15 @@ export function createInMemoryD1(): D1Database {
     },
   ];
 
+  const wishlistVotes: WishlistVoteTable[] = [
+    { id: 'wv-1', user_id: 'usr-admin', wishlist_id: 'wish-seed-1', created_at: new Date().toISOString() },
+    { id: 'wv-2', user_id: 'usr-scholar', wishlist_id: 'wish-seed-1', created_at: new Date().toISOString() },
+    { id: 'wv-3', user_id: 'usr-demo', wishlist_id: 'wish-seed-1', created_at: new Date().toISOString() },
+    { id: 'wv-4', user_id: 'usr-scholar', wishlist_id: 'wish-seed-2', created_at: new Date().toISOString() },
+    { id: 'wv-5', user_id: 'usr-admin', wishlist_id: 'wish-seed-3', created_at: new Date().toISOString() },
+    { id: 'wv-6', user_id: 'usr-demo', wishlist_id: 'wish-seed-3', created_at: new Date().toISOString() },
+  ];
+
   const articles: ArticleTable[] = [
     {
       id: 'art-1',
@@ -1396,11 +1412,34 @@ export function createInMemoryD1(): D1Database {
           return { results: bms.map((b) => ({ entity_id: b.entity_id })) as unknown as T[], success: true };
         }
 
+        if (normalized.includes('FROM user_bookmarks WHERE user_id = ? AND entity_type = ? ORDER BY created_at DESC')) {
+          const bms = bookmarks
+            .filter((b) => b.user_id === values[0] && b.entity_type === values[1])
+            .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+          return { results: bms as unknown as T[], success: true };
+        }
+
         if (normalized.includes('FROM user_bookmarks WHERE user_id = ? ORDER BY created_at DESC')) {
           const bms = bookmarks
             .filter((b) => b.user_id === values[0])
             .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
           return { results: bms as unknown as T[], success: true };
+        }
+
+        // 7.5 Wishlist Votes queries
+        if (normalized.includes('FROM wishlist_votes WHERE user_id = ? AND wishlist_id = ?')) {
+          const v = wishlistVotes.find((wv) => wv.user_id === values[0] && wv.wishlist_id === values[1]);
+          return { results: (v ? [v] : []) as unknown as T[], success: true };
+        }
+
+        if (normalized.includes('FROM wishlist_votes WHERE user_id = ?')) {
+          const v = wishlistVotes.filter((wv) => wv.user_id === values[0]);
+          return { results: v as unknown as T[], success: true };
+        }
+
+        if (normalized.includes('SELECT votes FROM wishlists WHERE id = ?') || normalized.includes('FROM wishlists WHERE id = ?')) {
+          const w = wishlists.find((item) => item.id === values[0]);
+          return { results: (w ? [{ votes: w.votes }] : []) as unknown as T[], success: true };
         }
 
         // 8. Journals list
@@ -1530,6 +1569,41 @@ export function createInMemoryD1(): D1Database {
           return { success: true };
         }
 
+        // Insert Wishlist Vote (Simulating D1 trigger trg_d1_wv_ai)
+        if (normalized.startsWith('INSERT INTO wishlist_votes')) {
+          const [id, user_id, wishlist_id] = values;
+          const exists = wishlistVotes.find((wv) => wv.user_id === user_id && wv.wishlist_id === wishlist_id);
+          if (!exists) {
+            wishlistVotes.push({
+              id,
+              user_id,
+              wishlist_id,
+              created_at: new Date().toISOString(),
+            });
+            // D1 Trigger: wishlists.votes = votes + 1
+            const target = wishlists.find((w) => w.id === wishlist_id);
+            if (target) {
+              target.votes = (target.votes || 0) + 1;
+            }
+          }
+          return { success: true };
+        }
+
+        // Delete Wishlist Vote (Simulating D1 trigger trg_d1_wv_ad)
+        if (normalized.startsWith('DELETE FROM wishlist_votes')) {
+          const [user_id, wishlist_id] = values;
+          const idx = wishlistVotes.findIndex((wv) => wv.user_id === user_id && wv.wishlist_id === wishlist_id);
+          if (idx !== -1) {
+            wishlistVotes.splice(idx, 1);
+            // D1 Trigger: wishlists.votes = MAX(0, votes - 1)
+            const target = wishlists.find((w) => w.id === wishlist_id);
+            if (target) {
+              target.votes = Math.max(0, (target.votes || 0) - 1);
+            }
+          }
+          return { success: true };
+        }
+
         // Update Wishlist Vote
         if (normalized.startsWith('UPDATE wishlists SET votes')) {
           const [delta, id] = values;
@@ -1537,6 +1611,19 @@ export function createInMemoryD1(): D1Database {
           if (target) {
             target.votes = Math.max(0, target.votes + Number(delta));
           }
+          return { success: true };
+        }
+
+        // Migrate bookmarks: article -> paper
+        if (normalized.includes("SET entity_type = 'paper' WHERE entity_type = 'article'")) {
+          bookmarks.forEach((b) => {
+            if (b.entity_type === 'article') b.entity_type = 'paper';
+          });
+          return { success: true };
+        }
+
+        // Drop table support
+        if (normalized.startsWith('DROP TABLE')) {
           return { success: true };
         }
 

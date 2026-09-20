@@ -11,13 +11,15 @@ import {
   Scale, 
   Sparkles, 
   Quote, 
-  FileText
+  FileText,
+  Clock
 } from 'lucide-react';
 import { 
   generateBluebook, 
   generateGBT7714, 
   generateBibTeX 
 } from '../lib/citationGenerator';
+import { copyToClipboard } from '../lib/clipboard';
 
 interface ArticleModalProps {
   article: Article | null;
@@ -48,8 +50,8 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
     }
   };
 
-  const handleCopyCitation = () => {
-    navigator.clipboard.writeText(getCitationText());
+  const handleCopyCitation = async () => {
+    await copyToClipboard(getCitationText());
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -70,8 +72,9 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
               <span className="text-xs text-zinc-500 font-mono">
                 {article.volumeIssue}
               </span>
-              <span className="text-xs text-zinc-400 font-mono">
-                · DOI: {article.doi}
+              <span className="text-xs text-zinc-500 font-mono flex items-center gap-1 bg-zinc-100 px-2 py-0.5 rounded">
+                <Clock className="w-3 h-3 text-zinc-400" />
+                <span>预计研读 {Math.max(8, Math.ceil(((article.abstractOriginal?.length || 500) + (article.abstractCn?.length || 300)) / 120))} 分钟</span>
               </span>
             </div>
 
@@ -243,7 +246,7 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
               rel="noopener noreferrer"
               className="px-3.5 py-1.5 rounded-md text-xs font-semibold bg-zinc-900 hover:bg-[#0F52BA] text-white transition-all flex items-center gap-1.5 shadow-2xs"
             >
-              <span>访问原刊出版源 (DOI)</span>
+              <span>访问原刊出版源</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>

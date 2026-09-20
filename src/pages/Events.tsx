@@ -18,8 +18,11 @@ import {
   Share2,
   Check,
   Sparkles,
+  CalendarPlus,
 } from 'lucide-react';
 import { getRemainingTime, formatDateChinese } from '../lib/dateUtils';
+import { copyToClipboard } from '../lib/clipboard';
+import { downloadEventIcs } from '../lib/calendarExport';
 
 interface EventsProps {
   events: AcademicEvent[];
@@ -105,12 +108,26 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
   }, [events, activeTab, statusFilter, searchQuery]);
 
   // Copy shareable summary helper
-  const handleCopySummary = (evt: AcademicEvent) => {
+  const handleCopySummary = async (evt: AcademicEvent) => {
     const summary = `【学术前沿通知】${evt.titleCn || evt.title}\n主办方：${evt.host}（${evt.location}）\n类别：${evt.type}\n截稿/截止：${evt.deadlineDisplay || evt.deadline}\n通道：${evt.submissionUrl}\n（来源：LexExtern 域外法学学术雷达）`;
-    navigator.clipboard.writeText(summary);
+    await copyToClipboard(summary);
     setCopiedId(evt.id);
     if (onShowToast) onShowToast('已复制活动快讯到剪贴板！', 'success');
     setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  // Download standard iCalendar (.ics)
+  const handleDownloadEventIcs = (evt: AcademicEvent) => {
+    try {
+      downloadEventIcs(evt);
+      if (onShowToast) {
+        onShowToast(`已成功导出《${evt.titleCn || evt.title}》的日历文件 (.ics)`, 'success');
+      }
+    } catch {
+      if (onShowToast) {
+        onShowToast('日历文件导出失败，请重试', 'error');
+      }
+    }
   };
 
   return (
@@ -126,9 +143,6 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               法学学术征文、特刊与全球教职
             </h1>
-            <p className="text-xs sm:text-sm text-[#6E6E73] leading-relaxed font-sans">
-              实时追踪全球法学院学术研讨会征文 (CFP)、顶级期刊特刊特辑组稿与全球终身教职/博士后招聘信息。
-            </p>
           </div>
 
           {/* Quick Metrics Grid (Apple-style rounded-2xl widgets) */}
@@ -461,6 +475,16 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
                         <ExternalLink className="w-3 h-3 text-[#86868B]" />
                       </a>
                     )}
+
+                    {/* Calendar .ics Export */}
+                    <button
+                      onClick={() => handleDownloadEventIcs(evt)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-blue-50/80 hover:bg-blue-100 border border-blue-200/60 text-[#0071E3] text-xs font-medium transition-all cursor-pointer"
+                      title="导出标准 .ics 日历文件，同步至 Apple 日历、Outlook 或 Google Calendar"
+                    >
+                      <CalendarPlus className="w-3.5 h-3.5 text-[#0071E3]" />
+                      <span>加入日历 (.ics)</span>
+                    </button>
                   </div>
 
                   {/* Share / Copy Summary Button */}

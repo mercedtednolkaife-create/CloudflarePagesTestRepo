@@ -148,9 +148,6 @@ export const Authors: React.FC<AuthorsProps> = ({
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-zinc-900 tracking-tight">
               域外法学学者画像库 (Authors)
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-600 max-w-2xl font-sans">
-              直连知名法学院所与研究机构，追踪顶尖法学学者的 SSRN 论著、最新发刊动态及代表论文。
-            </p>
           </div>
 
           <div className="text-right">
@@ -231,8 +228,8 @@ export const Authors: React.FC<AuthorsProps> = ({
                 {displayedAuthors.map((author) => (
                   <div
                     key={author.id}
-                    className={`bg-white rounded-2xl border p-6 transition-all duration-200 hover:border-zinc-300 hover:shadow-xs relative flex flex-col justify-between ${
-                      author.isBookmarked ? 'border-amber-300 bg-amber-50/15' : 'border-zinc-200'
+                    className={`bg-white rounded-[22px] border p-6 transition-all duration-200 hover:border-black/[0.12] hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] relative flex flex-col justify-between ${
+                      author.isBookmarked ? 'border-amber-300 bg-amber-50/15' : 'border-black/[0.06] shadow-[0_2px_10px_rgba(0,0,0,0.02)]'
                     }`}
                   >
                     {/* Bookmarked Badge */}
@@ -256,16 +253,12 @@ export const Authors: React.FC<AuthorsProps> = ({
                               .join('') || 'LE'}
                           </div>
                           <div>
-                            <h2 className="text-base sm:text-lg font-bold text-zinc-900 font-editorial-heading flex flex-wrap items-baseline gap-1.5">
-                              {author.nameCn ? (
-                                <>
-                                  <span>{author.nameCn}</span>
-                                  <span className="text-zinc-500 text-xs sm:text-sm font-serif font-normal">
-                                    ({author.name})
-                                  </span>
-                                </>
-                              ) : (
-                                <span>{author.name}</span>
+                            <h2 className="text-base sm:text-lg font-bold text-[#1D1D1F] font-editorial-heading flex flex-wrap items-baseline gap-2">
+                              <span>{author.name}</span>
+                              {author.nameCn && (
+                                <span className="text-xs sm:text-sm text-[#6E6E73] font-medium font-sans bg-black/[0.04] px-2 py-0.5 rounded-md">
+                                  {author.nameCn}
+                                </span>
                               )}
                             </h2>
                             {author.institution && (
@@ -376,7 +369,7 @@ export const Authors: React.FC<AuthorsProps> = ({
                               <button
                                 onClick={() => onViewAuthorPapers(author.name)}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white hover:bg-zinc-100 text-[#0F52BA] hover:text-[#093d94] border border-blue-200/80 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs group"
-                                title={`在文献流中检索并查看学者【${author.name}】的全部论著`}
+                                title={`在文献库中检索并查看学者【${author.name}】的全部论著`}
                               >
                                 <FileText className="w-3 h-3 text-[#0F52BA]" />
                                 <span>查看详细论文</span>

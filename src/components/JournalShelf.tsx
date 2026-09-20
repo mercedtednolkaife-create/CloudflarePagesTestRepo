@@ -24,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 interface JournalShelfProps {
   journals?: Journal[];
   onTogglePin?: (id: string) => void;
-  onFilterByJournal?: (journalName: string) => void;
+  onFilterByJournal?: (journalName: string, issueOrVolume?: string) => void;
   onShowToast?: (text: string, type?: 'success' | 'error') => void;
 }
 
@@ -157,9 +157,6 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
             <h1 className="font-editorial-heading text-2xl sm:text-3xl font-bold tracking-tight text-zinc-900">
               域外法学核心期刊架 (Journal Shelf)
             </h1>
-            <p className="text-zinc-600 text-xs sm:text-sm font-sans leading-relaxed">
-              实时聚合全球 SSCI 法学一区与顶尖综合评论刊物。支持依用户通行证自主置顶常读书刊，并同步更新刊期与引证热点。
-            </p>
           </div>
 
           {/* Quick Stats & Refresh Button */}
@@ -366,7 +363,7 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
                 <div className="flex items-center gap-2">
                   {onFilterByJournal && (
                     <button
-                      onClick={() => onFilterByJournal(journal.nameOriginal)}
+                      onClick={() => onFilterByJournal(journal.nameOriginal, journal.currentIssue)}
                       className="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                     >
                       <BookOpenCheck className="w-3.5 h-3.5 text-[#0F52BA]" />

@@ -179,6 +179,13 @@ export interface WishlistRow {
   created_at: string;
 }
 
+export interface WishlistVoteRow {
+  id: string;
+  user_id: string;
+  wishlist_id: string;
+  created_at: string;
+}
+
 export interface ArticleRow {
   id: string;
   title_cn: string;
@@ -651,6 +658,11 @@ export default {
         });
 
         // 5. 多维度筛选
+        const bookmarkedOnly = searchParams.get('bookmarked') === 'true' || searchParams.get('saved') === 'true';
+        if (bookmarkedOnly) {
+          papers = papers.filter((p) => p.isBookmarked);
+        }
+
         if (tag && tag !== '全部领域' && tag !== '全部') {
           papers = papers.filter((p) => p.tags.includes(tag) || (p.tagsCn && p.tagsCn.includes(tag)));
         }
@@ -780,7 +792,7 @@ export default {
           bookmarkedAuthorIds = new Set((bookmarkResults || []).map((b) => b.entity_id));
         }
 
-        const authors = (results || []).map((row) => {
+        let authors = (results || []).map((row) => {
           const authorPapers = papersByAuthor[row.id] || [];
           return {
             id: row.id,
@@ -809,6 +821,11 @@ export default {
             isBookmarked: bookmarkedAuthorIds.has(row.id),
           };
         });
+
+        const bookmarkedOnly = searchParams.get('bookmarked') === 'true' || searchParams.get('saved') === 'true';
+        if (bookmarkedOnly) {
+          authors = authors.filter((a) => a.isBookmarked);
+        }
 
         // 优先将已标星学者置顶
         authors.sort((a, b) => {
@@ -951,7 +968,8 @@ export default {
           return errorResponse('Invalid JSON payload', 400);
         }
 
-        const entityType = (body.entity_type || body.entityType || '').trim().toLowerCase();
+        const rawType = (body.entity_type || body.entityType || '').trim().toLowerCase();
+        const entityType = rawType === 'article' ? 'paper' : rawType;
         const entityId = (body.entity_id || body.entityId || '').trim();
         const authUser = await getAuthUser(request, env);
         const userId = authUser?.id || body.user_id;
@@ -997,7 +1015,7 @@ export default {
       }
 
       // -------------------------------------------------------------
-      // 9. GET /api/bookmarks - 获取当前登录用户的全部收藏
+      // 9. GET /api/bookmarks - 获取当前登录用户的全部收藏 (利用复合覆盖索引高效排序与分页)
       // -------------------------------------------------------------
       if (pathname === '/api/bookmarks' && request.method === 'GET') {
         const authUser = await getAuthUser(request, env);
@@ -1007,17 +1025,39 @@ export default {
           return jsonResponse({ success: true, data: [], total: 0 });
         }
 
-        const query = `
-          SELECT * FROM user_bookmarks 
-          WHERE user_id = ? 
-          ORDER BY created_at DESC
-        `;
-        const { results } = await env.DB.prepare(query).bind(userId).all<BookmarkRow>();
+        const rawType = searchParams.get('entity_type') || searchParams.get('type');
+        const entityType = rawType === 'article' ? 'paper' : (rawType || '').trim().toLowerCase();
+        const pageParam = searchParams.get('page');
+
+        let query = `SELECT * FROM user_bookmarks WHERE user_id = ?`;
+        const params: any[] = [userId];
+
+        if (entityType && entityType !== 'all') {
+          query += ` AND entity_type = ?`;
+          params.push(entityType);
+        }
+
+        // 依靠 idx_d1_ub_user_type_created 与 idx_d1_ub_user_created 索引实现零内存排序
+        query += ` ORDER BY created_at DESC`;
+
+        const { results } = await env.DB.prepare(query).bind(...params).all<BookmarkRow>();
+        const allItems = results || [];
+
+        if (pageParam) {
+          const { page, pageSize } = parsePaginationParams(searchParams, 15);
+          const paginated = paginateArray(allItems, page, pageSize);
+          return jsonResponse({
+            success: true,
+            data: paginated.data,
+            pagination: paginated.pagination,
+            total: paginated.total,
+          });
+        }
 
         return jsonResponse({
           success: true,
-          data: results || [],
-          total: (results || []).length,
+          data: allItems,
+          total: allItems.length,
         });
       }
 
@@ -1101,6 +1141,11 @@ export default {
           );
         }
 
+        const pinnedOnly = searchParams.get('pinned') === 'true' || searchParams.get('bookmarked') === 'true';
+        if (pinnedOnly) {
+          formatted = formatted.filter((j) => j.isPinned);
+        }
+
         // 置顶排序优先，随后按中文名称排序
         formatted.sort((a, b) => {
           if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -1181,9 +1226,20 @@ export default {
       }
 
       // -------------------------------------------------------------
-      // 11. GET & POST /api/wishlist - 心愿单 (向所有用户公开展示)
+      // 11. GET & POST /api/wishlist - 心愿单 (向所有用户公开展示，支持用户投票状态查询)
       // -------------------------------------------------------------
       if ((pathname === '/api/wishlist' || pathname === '/api/wishlists') && request.method === 'GET') {
+        const authUser = await getAuthUser(request, env);
+        const userId = authUser?.id || searchParams.get('user_id');
+
+        let userVotedIds = new Set<string>();
+        if (userId) {
+          const { results: voteResults } = await env.DB.prepare(
+            `SELECT wishlist_id FROM wishlist_votes WHERE user_id = ?`
+          ).bind(userId).all<{ wishlist_id: string }>();
+          userVotedIds = new Set((voteResults || []).map((v) => v.wishlist_id));
+        }
+
         const query = `
           SELECT * FROM wishlists 
           ORDER BY votes DESC, created_at DESC
@@ -1201,6 +1257,7 @@ export default {
           submitter: row.submitter || '匿名学者',
           notes: row.notes || '',
           votes: row.votes || 0,
+          userVoted: userVotedIds.has(row.id),
           responseNote: row.response_note || undefined,
           submittedAt: row.created_at ? row.created_at.split(' ')[0] : new Date().toISOString().split('T')[0],
         }));
@@ -1229,10 +1286,18 @@ export default {
           return errorResponse('收录实体名称 (entity_name) 为必填项', 400);
         }
 
+        // 初始写入 wishlists 表 (votes 默认为 0)
         await env.DB.prepare(`
           INSERT INTO wishlists (id, user_id, entity_type, entity_name, status, submitter, notes, votes)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 0)
         `).bind(id, userId, entityType, entityName, status, submitter, notes).run();
+
+        // 自动为提议学者插入 wishlist_votes 初始赞成票流水
+        // D1 触发器 trg_d1_wv_ai 将自动原子将 wishlists.votes 递增为 1
+        const initialVoteId = `wv-${crypto.randomUUID()}`;
+        await env.DB.prepare(`
+          INSERT INTO wishlist_votes (id, user_id, wishlist_id) VALUES (?, ?, ?)
+        `).bind(initialVoteId, userId, id).run();
 
         // 自动同步至 FTS5 全局检索虚拟表
         const searchContent = `${notes} 提议人: ${submitter} 类型: ${entityType}`;
@@ -1252,6 +1317,7 @@ export default {
           submitter,
           notes,
           votes: 1,
+          userVoted: true,
           submittedAt: new Date().toISOString().split('T')[0],
         };
 
@@ -1263,15 +1329,51 @@ export default {
       }
 
       if (pathname === '/api/wishlist/vote' && request.method === 'POST') {
-        const body: any = await request.json();
-        const { id, delta = 1 } = body;
+        let body: any;
+        try {
+          body = await request.json();
+        } catch {
+          return errorResponse('Invalid JSON payload in request body', 400);
+        }
+
+        const { id } = body;
         if (!id) return errorResponse('Wishlist ID required', 400);
 
-        await env.DB.prepare(`
-          UPDATE wishlists SET votes = MAX(0, votes + ?) WHERE id = ?
-        `).bind(delta, id).run();
+        const authUser = await getAuthUser(request, env);
+        const userId = authUser?.id || body.user_id || 'usr-demo';
 
-        return jsonResponse({ success: true, message: '投票已更新' });
+        // 检查流水表 wishlist_votes 中是否存在该用户的投票记录
+        const existingVote = await env.DB.prepare(
+          `SELECT id FROM wishlist_votes WHERE user_id = ? AND wishlist_id = ?`
+        ).bind(userId, id).first<{ id: string }>();
+
+        let userVoted = false;
+        if (existingVote) {
+          // 已投票 -> 撤销点赞 (由 D1 触发器 trg_d1_wv_ad 自动原子执行 votes = MAX(0, votes - 1))
+          await env.DB.prepare(
+            `DELETE FROM wishlist_votes WHERE user_id = ? AND wishlist_id = ?`
+          ).bind(userId, id).run();
+          userVoted = false;
+        } else {
+          // 未投票 -> 插入点赞流水 (由 D1 触发器 trg_d1_wv_ai 自动原子执行 votes = votes + 1)
+          const voteId = `wv-${crypto.randomUUID()}`;
+          await env.DB.prepare(
+            `INSERT INTO wishlist_votes (id, user_id, wishlist_id) VALUES (?, ?, ?)`
+          ).bind(voteId, userId, id).run();
+          userVoted = true;
+        }
+
+        // 读取由 D1 触发器原子维护后的最新 votes
+        const updatedWishlist = await env.DB.prepare(
+          `SELECT votes FROM wishlists WHERE id = ?`
+        ).bind(id).first<{ votes: number }>();
+
+        return jsonResponse({
+          success: true,
+          message: userVoted ? '点赞投票已记录并由 D1 触发器原子累加' : '已取消点赞并由 D1 触发器原子扣减',
+          userVoted,
+          votes: updatedWishlist?.votes ?? 0,
+        });
       }
 
       // -------------------------------------------------------------
@@ -1373,7 +1475,7 @@ export default {
       }
 
       // -------------------------------------------------------------
-      // 13. GET /api/articles - 兼容保留文献流列表 (支持分页)
+      // 13. GET /api/articles - 兼容文献流接口 (统一查询 papers 主表与 journals)
       // -------------------------------------------------------------
       if (pathname === '/api/articles' && request.method === 'GET') {
         const tag = searchParams.get('tag');
@@ -1382,50 +1484,93 @@ export default {
         const userId = authUser?.id || searchParams.get('user_id');
         const { page, pageSize } = parsePaginationParams(searchParams, 15);
 
-        let query = `SELECT * FROM articles WHERE 1=1`;
+        let query = `
+          SELECT 
+            p.id,
+            p.journal_id,
+            p.paper_type,
+            p.category,
+            p.category_cn,
+            p.title,
+            p.title_cn,
+            p.abstract,
+            p.abstract_cn,
+            p.volume,
+            p.issue,
+            p.volume_issue,
+            p.published_at,
+            p.url,
+            p.pdf_url,
+            p.doi,
+            p.authors_json,
+            p.journal_name_cn,
+            p.recommended_citation,
+            p.first_page,
+            p.last_page,
+            p.tags,
+            p.tags_cn,
+            p.reading_time,
+            p.featured,
+            p.citations_count,
+            j.name AS journal_name,
+            j.name_cn AS j_name_cn,
+            j.abbreviation AS journal_abbr,
+            j.jurisdiction
+          FROM papers p
+          LEFT JOIN journals j ON p.journal_id = j.id
+          WHERE 1=1
+        `;
         const params: any[] = [];
 
-        if (jurisdiction && jurisdiction !== 'All') {
-          query += ` AND jurisdiction = ?`;
+        if (jurisdiction && jurisdiction !== 'All' && jurisdiction !== '全部') {
+          query += ` AND (j.jurisdiction = ?)`;
           params.push(jurisdiction);
         }
 
-        query += ` ORDER BY publish_date DESC`;
+        query += ` ORDER BY p.published_at DESC`;
 
         const stmt = params.length > 0 ? env.DB.prepare(query).bind(...params) : env.DB.prepare(query);
-        const { results } = await stmt.all<ArticleRow>();
+        const { results } = await stmt.all<PaperRow & { journal_name?: string; j_name_cn?: string; journal_abbr?: string; jurisdiction?: string }>();
 
-        // 联合查询收藏
+        // 联合查询收藏 (旧 article 收藏记录已全部归并为 paper 类型)
         let savedIds = new Set<string>();
         if (userId) {
-          const bmQuery = `SELECT entity_id FROM user_bookmarks WHERE user_id = ? AND entity_type IN ('article', 'paper')`;
+          const bmQuery = `SELECT entity_id FROM user_bookmarks WHERE user_id = ? AND entity_type = 'paper'`;
           const { results: bmResults } = await env.DB.prepare(bmQuery).bind(userId).all<{ entity_id: string }>();
           savedIds = new Set((bmResults || []).map((b) => b.entity_id));
         }
 
-        let filtered = (results || []).map((row: ArticleRow) => ({
-          id: row.id,
-          titleCn: row.title_cn,
-          titleOriginal: row.title_original,
-          authors: parseJsonField<string[]>(row.authors, []),
-          authorAffiliation: row.author_affiliation || '',
-          journalName: row.journal_name,
-          journalAbbr: row.journal_abbr || '',
-          volumeIssue: row.volume_issue || '',
-          publishDate: row.publish_date || '',
-          tags: parseJsonField<string[]>(row.tags, []),
-          abstractCn: row.abstract_cn || '',
-          abstractOriginal: row.abstract_original || '',
-          doi: row.doi || '',
-          pdfUrl: row.pdf_url || undefined,
-          citationsCount: row.citations_count || 0,
-          saved: Boolean(row.saved || savedIds.has(row.id)),
-          readingTime: row.reading_time || '15 分钟',
-          jurisdiction: (row.jurisdiction || 'All') as any,
-          featured: Boolean(row.featured),
-        }));
+        let filtered = (results || []).map((row) => {
+          const parsedAuthorsJson = parseJsonField<any[]>(row.authors_json, []);
+          const authorNames: string[] = parsedAuthorsJson.length > 0
+            ? parsedAuthorsJson.map((a: any) => (typeof a === 'string' ? a : (a?.name || a?.name_cn || '法学学者')))
+            : ['法学学者'];
+          const firstAffiliation = parsedAuthorsJson.find((a: any) => a && typeof a === 'object' && a.affiliation)?.affiliation;
 
-        if (tag && tag !== '全部领域') {
+          return {
+            id: row.id,
+            titleCn: row.title_cn || row.title,
+            titleOriginal: row.title,
+            authors: authorNames,
+            authorAffiliation: firstAffiliation || row.journal_name_cn || row.journal_name || '',
+            journalName: row.journal_name || '权威法学期刊',
+            journalAbbr: row.journal_abbr || '',
+            volumeIssue: row.volume_issue || (row.volume ? `Vol. ${row.volume}` : ''),
+            publishDate: row.published_at || '',
+            tags: parseJsonField<string[]>(row.tags_cn || row.tags, []),
+            abstractCn: row.abstract_cn || row.abstract || '',
+            abstractOriginal: row.abstract || '',
+            doi: row.doi || '',
+            pdfUrl: row.pdf_url || undefined,
+            citationsCount: row.citations_count || 0,
+            saved: Boolean(savedIds.has(row.id)),
+            readingTime: row.reading_time ? `${row.reading_time} 分钟` : '15 分钟',
+            jurisdiction: (row.jurisdiction || 'All') as any,
+            featured: Boolean(row.featured),
+          };
+        });
+
+        if (tag && tag !== '全部领域' && tag !== '全部') {
           filtered = filtered.filter((a) => a.tags.includes(tag));
         }
 

@@ -5,7 +5,7 @@ export function generateBluebook(article: Article): string {
   const volPart = article.volumeIssue.replace('Vol. ', '').replace('No. ', '').replace('Issue ', '');
   const pagePart = article.firstPage ? ` ${article.firstPage}` : '';
   const year = article.publishDate ? article.publishDate.slice(0, 4) : '2026';
-  return `${authorStr}, ${article.titleOriginal}, ${volPart} ${article.journalAbbr}${pagePart} (${year}). DOI: ${article.doi}`;
+  return `${authorStr}, ${article.titleOriginal}, ${volPart} ${article.journalAbbr}${pagePart} (${year}).`;
 }
 
 export function generateGBT7714(article: Article): string {
@@ -16,7 +16,7 @@ export function generateGBT7714(article: Article): string {
       ? `: ${article.firstPage}-${article.lastPage}`
       : `: ${article.firstPage}`
     : '';
-  return `[1] ${authors}. ${article.titleOriginal} [J]. ${article.journalName}, ${year}, ${article.volumeIssue}${pagePart}. DOI: ${article.doi}.`;
+  return `[1] ${authors}. ${article.titleOriginal} [J]. ${article.journalName}, ${year}, ${article.volumeIssue}${pagePart}.`;
 }
 
 export function generateBibTeX(article: Article): string {
@@ -32,7 +32,6 @@ export function generateBibTeX(article: Article): string {
   title = {${article.titleOriginal}},
   journal = {${article.journalName}},
   volume = {${article.volumeIssue}},${pagesPart}
-  year = {${year}},
-  doi = {${article.doi}}
+  year = {${year}}
 }`;
 }

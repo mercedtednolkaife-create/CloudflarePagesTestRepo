@@ -21,6 +21,7 @@ import {
   fetchAuthors,
   fetchJournals,
   clearApiCache,
+  toggleBookmark,
   AggregationSummary,
 } from './services/api';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -100,9 +101,9 @@ function AppContent() {
         fetchedWishlist,
       ] = await Promise.all([
         fetchSummary(bypassCache),
-        fetchArticles(undefined, undefined, 1, 30).catch(() => ({ articles: [], pagination: {} as any })),
-        fetchAuthors(1, 20).catch(() => ({ authors: [], pagination: {} as any })),
-        fetchJournals({ page: 1, pageSize: 20, bypassCache }).catch(() => ({ journals: [], pagination: {} as any })),
+        fetchArticles(undefined, undefined, 1, 60).catch(() => ({ articles: [], pagination: {} as any })),
+        fetchAuthors(1, 40).catch(() => ({ authors: [], pagination: {} as any })),
+        fetchJournals({ page: 1, pageSize: 40, bypassCache }).catch(() => ({ journals: [], pagination: {} as any })),
         fetchEvents().catch(() => []),
         fetchWishlist().catch(() => []),
       ]);
@@ -212,7 +213,12 @@ function AppContent() {
     );
 
     try {
-      await voteWishlistItem(id, delta);
+      const res = await voteWishlistItem(id, delta);
+      if (res && typeof res.votes === 'number') {
+        setWishlist((prev) =>
+          prev.map((w) => (w.id === id ? { ...w, votes: res.votes, userVoted: res.userVoted } : w))
+        );
+      }
       showToast(item.userVoted ? '已取消投票' : `为【${item.name}】投出宝贵一票！`);
     } catch {
       showToast('投票操作失败', 'error');
@@ -235,10 +241,33 @@ function AppContent() {
   };
 
   // Navigation handlers from other components
-  const handleFilterByJournal = (journalName: string) => {
+  const handleFilterByJournal = (journalName: string, issueOrVolume?: string) => {
     setFilterJournal(journalName);
-    setFilterVolume(null);
-    setFilterIssue(null);
+    if (issueOrVolume && issueOrVolume !== '最新卷期') {
+      const volMatch = issueOrVolume.match(/(Vol\.?\s*\d+)/i);
+      const issMatch = issueOrVolume.match(/(Issue\s*\d+|No\.?\s*\d+)/i);
+      if (volMatch) {
+        setFilterVolume(volMatch[1].trim());
+      } else {
+        setFilterVolume(null);
+      }
+      if (issMatch) {
+        setFilterIssue(issMatch[1].trim());
+      } else if (!volMatch) {
+        if (/vol/i.test(issueOrVolume)) {
+          setFilterVolume(issueOrVolume.trim());
+          setFilterIssue(null);
+        } else {
+          setFilterIssue(issueOrVolume.trim());
+          setFilterVolume(null);
+        }
+      } else {
+        setFilterIssue(null);
+      }
+    } else {
+      setFilterVolume(null);
+      setFilterIssue(null);
+    }
     setFilterPaperTitle(null);
     setActiveTab('papers');
   };
@@ -257,6 +286,30 @@ function AppContent() {
     setFilterVolume(null);
     setFilterIssue(null);
     setActiveTab('papers');
+  };
+
+  // Toggle Save / Bookmark for articles or papers on Home view
+  const handleToggleSave = async (id: string, type: 'paper' | 'author' | 'journal' | 'article' = 'paper') => {
+    // Optimistic UI for articles in state
+    setArticles((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, saved: !a.saved } : a))
+    );
+
+    // Map 'article' to 'paper' so it syncs with the unified papers bookmark collection in backend D1
+    const normalizedType = type === 'article' ? 'paper' : type;
+
+    try {
+      const res = await toggleBookmark(normalizedType, id, user?.id);
+      showToast(res.bookmarked ? '已成功将文献加入个人收藏' : '已将文献从个人收藏中移除', 'success');
+      refreshSummaryOnly();
+    } catch (err: any) {
+      console.error('Failed to toggle bookmark:', err);
+      // Rollback optimistic state
+      setArticles((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, saved: !a.saved } : a))
+      );
+      showToast('收藏状态更新失败，请稍后重试', 'error');
+    }
   };
 
   // -------------------------------------------------------------
@@ -404,6 +457,7 @@ function AppContent() {
                 onNavigateToTab={setActiveTab}
                 onResetFilters={handleResetFilters}
                 onShowToast={showToast}
+                onToggleSave={handleToggleSave}
               />
             )}
 
@@ -463,7 +517,12 @@ function AppContent() {
             )}
 
             {/* VIEW 4: EVENTS & DEADLINES (活动与征稿) */}
-            {activeTab === 'events' && <Events events={events} />}
+            {activeTab === 'events' && (
+              <Events
+                events={events}
+                onShowToast={(msg, type) => showToast(msg, type)}
+              />
+            )}
 
             {/* VIEW 5: BOOKMARKS & BIBTEX EXPORT (个人收藏夹 - 纯前端 BibTeX 导出) */}
             {(activeTab === 'bookmarks' || activeTab === 'saved') && (
