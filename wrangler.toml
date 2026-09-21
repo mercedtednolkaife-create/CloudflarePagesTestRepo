@@ -5,6 +5,6 @@ compatibility_date = "2024-04-01"
 # Cloudflare D1 Database Binding
 [[d1_databases]]
 binding = "DB"
-database_name = "lexextern-db"
-database_id = "local-d1-lexextern-uuid"
+database_name = "legal-tracker-db"
+database_id = "80640e15-e559-4ef3-9c6b-72a3ff5ef838"
 migrations_dir = "migrations"

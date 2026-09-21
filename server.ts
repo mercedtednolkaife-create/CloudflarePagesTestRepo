@@ -29,7 +29,7 @@ async function startServer() {
           if (Array.isArray(value)) {
             value.forEach((v) => headers.append(key, v));
           } else {
-            headers.set(key, value);
+            headers.set(key, String(value));
           }
         }
       }
