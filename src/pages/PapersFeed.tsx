@@ -172,12 +172,32 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
     };
   }, []);
 
-  // Load Papers from GET /api/papers
-  const loadPapers = useCallback(async (tag?: string, targetPage = page, targetSize = pageSize) => {
+  // Load Papers from GET /api/papers (Server-Side Pagination & Filter Pushdown)
+  const loadPapers = useCallback(async (
+    tag = selectedTag,
+    targetPage = page,
+    targetSize = pageSize,
+    journal = selectedJournal,
+    volume = selectedVolume,
+    issue = selectedIssue,
+    search = searchQuery,
+    authorProp = filterAuthor,
+    paperTitleProp = filterPaperTitle
+  ) => {
     setIsLoading(true);
     try {
       const activeTag = tag && tag !== '全部领域' ? tag : undefined;
-      const res = await fetchPapers(activeTag, targetPage, targetSize);
+      const activeJournal = journal && journal !== '全部期刊' ? journal : undefined;
+      const activeVolume = volume && volume !== '全部卷' ? volume : undefined;
+      const activeIssue = issue && issue !== '全部期' ? issue : undefined;
+      const combinedSearch = [search, authorProp, paperTitleProp].filter(Boolean).join(' ').trim() || undefined;
+
+      const res = await fetchPapers(activeTag, targetPage, targetSize, {
+        journal: activeJournal,
+        volume: activeVolume,
+        issue: activeIssue,
+        search: combinedSearch,
+      });
       setPapers(res.papers);
       setPagination(res.pagination);
     } catch (err: any) {
@@ -186,11 +206,32 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, onShowToast]);
+  }, [selectedTag, page, pageSize, selectedJournal, selectedVolume, selectedIssue, searchQuery, filterAuthor, filterPaperTitle, onShowToast]);
 
   useEffect(() => {
-    loadPapers(selectedTag, page, pageSize);
-  }, [selectedTag, page, pageSize, loadPapers]);
+    loadPapers(
+      selectedTag,
+      page,
+      pageSize,
+      selectedJournal,
+      selectedVolume,
+      selectedIssue,
+      searchQuery,
+      filterAuthor,
+      filterPaperTitle
+    );
+  }, [
+    selectedTag,
+    page,
+    pageSize,
+    selectedJournal,
+    selectedVolume,
+    selectedIssue,
+    searchQuery,
+    filterAuthor,
+    filterPaperTitle,
+    loadPapers,
+  ]);
 
   // Handle Search Trigger on Enter or Click
   const handleTriggerSearch = () => {
@@ -345,7 +386,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
     if (onClearPaperTitleFilter) onClearPaperTitleFilter();
 
     setPage(1);
-    loadPapers('全部领域', 1, pageSize);
+    loadPapers('全部领域', 1, pageSize, '全部期刊', '全部卷', '全部期', '', null, null);
   };
 
   // Toggle Bookmark Handler
@@ -410,156 +451,48 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
     }));
   };
 
-  // Filtered papers by all criteria (client-side dynamic composition)
-  const displayedPapers = useMemo(() => {
-    return papers.filter((p) => {
-      // 1. Author filter
-      if (filterAuthor) {
-        const matchesAuthor = (p.authors || []).some((a) => {
-          const str = typeof a === 'string' ? a : ((a as any)?.name || (a as any)?.nameCn || '');
-          return str.toLowerCase().includes(filterAuthor.toLowerCase());
-        });
-        if (!matchesAuthor) return false;
-      }
-
-      // 2. Journal filter
-      const activeJournal =
-        filterJournal && filterJournal !== '全部期刊'
-          ? filterJournal
-          : selectedJournal !== '全部期刊'
-          ? selectedJournal
-          : null;
-
-      if (activeJournal) {
-        const jf = activeJournal.toLowerCase();
-        const matchesJournal =
-          p.journalName.toLowerCase().includes(jf) ||
-          (p.journalNameCn && p.journalNameCn.toLowerCase().includes(jf)) ||
-          (p.journalAbbr && p.journalAbbr.toLowerCase().includes(jf));
-        if (!matchesJournal) return false;
-      }
-
-      // 3. Volume filter
-      const activeVolume =
-        filterVolume && filterVolume !== '全部卷'
-          ? filterVolume
-          : selectedVolume !== '全部卷'
-          ? selectedVolume
-          : null;
-
-      if (activeVolume) {
-        const { volume } = extractVolAndIssue(p);
-        const normTarget = activeVolume.replace(/\D/g, '');
-        const normVol = volume ? volume.replace(/\D/g, '') : '';
-        const matchesVol =
-          (normTarget && normVol && normTarget === normVol) ||
-          (volume && volume.toLowerCase() === activeVolume.toLowerCase()) ||
-          (p.volumeIssue && p.volumeIssue.toLowerCase().includes(activeVolume.toLowerCase()));
-        if (!matchesVol) {
-          return false;
-        }
-      }
-
-      // 4. Issue filter
-      const activeIssue =
-        filterIssue && filterIssue !== '全部期'
-          ? filterIssue
-          : selectedIssue !== '全部期'
-          ? selectedIssue
-          : null;
-
-      if (activeIssue) {
-        const { issue } = extractVolAndIssue(p);
-        const normTarget = activeIssue.replace(/\D/g, '');
-        const normIss = issue ? issue.replace(/\D/g, '') : '';
-        const matchesIss =
-          (normTarget && normIss && normTarget === normIss) ||
-          (issue && issue.toLowerCase() === activeIssue.toLowerCase()) ||
-          (p.volumeIssue && p.volumeIssue.toLowerCase().includes(activeIssue.toLowerCase()));
-        if (!matchesIss) {
-          return false;
-        }
-      }
-
-      // 5. Paper Title specific filter (e.g. from Home "在文献库中查看")
-      if (filterPaperTitle && filterPaperTitle.trim()) {
-        const titleTarget = filterPaperTitle.trim().toLowerCase();
-        const matchesTitle = p.title.toLowerCase().includes(titleTarget);
-        if (!matchesTitle) return false;
-      }
-
-      // 6. Search query filter
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesSearch =
-          p.title.toLowerCase().includes(q) ||
-          (p.titleCn && p.titleCn.toLowerCase().includes(q)) ||
-          p.abstract.toLowerCase().includes(q) ||
-          (p.abstractCn && p.abstractCn.toLowerCase().includes(q)) ||
-          p.journalName.toLowerCase().includes(q) ||
-          (p.journalNameCn && p.journalNameCn.toLowerCase().includes(q)) ||
-          (p.categoryCn && p.categoryCn.toLowerCase().includes(q)) ||
-          (p.doi && p.doi.toLowerCase().includes(q)) ||
-          (p.authors || []).some((a) => {
-            const str = typeof a === 'string' ? a : ((a as any)?.name || (a as any)?.nameCn || '');
-            return str.toLowerCase().includes(q);
-          }) ||
-          (p.authorsDetail && p.authorsDetail.some((ad) => (ad.nameCn && ad.nameCn.includes(q)) || (ad.institution && ad.institution.toLowerCase().includes(q))));
-        if (!matchesSearch) return false;
-      }
-
-      return true;
-    });
-  }, [
-    papers,
-    searchQuery,
-    filterAuthor,
-    filterJournal,
-    selectedJournal,
-    filterVolume,
-    selectedVolume,
-    filterIssue,
-    selectedIssue,
-    filterPaperTitle,
-  ]);
+  // Filtered papers (strictly driven by server-side pushdown query)
+  const displayedPapers = papers;
 
   const hasActiveFilters = Boolean(
     filterAuthor ||
       (selectedJournal && selectedJournal !== '全部期刊') ||
       (selectedVolume && selectedVolume !== '全部卷') ||
       (selectedIssue && selectedIssue !== '全部期') ||
-      (filterPaperTitle && filterPaperTitle.trim())
+      (filterPaperTitle && filterPaperTitle.trim()) ||
+      searchQuery ||
+      (selectedTag && selectedTag !== '全部领域')
   );
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Top Banner */}
-      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-zinc-200 shadow-2xs">
+      {/* Top Banner (Apple-style frosted card) */}
+      <div className="bg-white rounded-2xl sm:rounded-[22px] p-6 sm:p-8 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-blue-50 border border-blue-200/60 text-[#0F52BA] text-[11px] font-semibold">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
               <BookOpen className="w-3.5 h-3.5" />
               <span>Global Literature Pipeline · D1 Schema</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-zinc-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               域外法学文献库 (Literature Library)
             </h1>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <div className="text-2xl font-bold text-zinc-900 font-mono">
-                {displayedPapers.length !== papers.length ? `${displayedPapers.length} / ${papers.length}` : pagination.total || papers.length}
+              <div className="text-2xl font-bold text-[#1D1D1F] font-mono">
+                {pagination.total || papers.length}
               </div>
-              <div className="text-[11px] text-zinc-500 font-medium">当前检索篇目</div>
+              <div className="text-[11px] text-[#86868B] font-medium">全库检索篇目</div>
             </div>
           </div>
         </div>
 
         {/* Tag Cloud Selector */}
-        <div className="mt-6 pt-6 border-t border-zinc-100 flex flex-wrap gap-1.5 items-center">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 mr-2">
-            <Filter className="w-3.5 h-3.5" />
+        <div className="mt-6 pt-6 border-t border-black/[0.04] flex flex-wrap gap-1.5 items-center">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#6E6E73] mr-2">
+            <Filter className="w-3.5 h-3.5 text-[#0071E3]" />
             <span>领域标签:</span>
           </div>
           {POPULAR_TAGS.map((tag) => {
@@ -571,10 +504,10 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                   setSelectedTag(tag);
                   setPage(1);
                 }}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-zinc-900 text-white shadow-2xs font-semibold'
-                    : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
+                    ? 'bg-[#1D1D1F] text-white shadow-xs font-semibold'
+                    : 'bg-[#F5F5F7] text-[#6E6E73] hover:bg-black/[0.06] hover:text-[#1D1D1F]'
                 }`}
               >
                 #{tag}

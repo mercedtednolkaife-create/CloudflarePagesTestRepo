@@ -41,14 +41,23 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
     setIsLoading(true);
     try {
       const [papersRes, authorsRes, journalsRes] = await Promise.all([
-        fetchPapers(undefined, 1, 100, { bookmarked: true }),
-        fetchAuthors(1, 100, { bookmarked: true }),
-        fetchJournals({ page: 1, pageSize: 100, pinned: true }),
+        fetchPapers(undefined, 1, 100, { bookmarked: true }).catch((err) => {
+          console.warn('Failed to load bookmarked papers:', err);
+          return { papers: [], pagination: {} as any };
+        }),
+        fetchAuthors(1, 100, { bookmarked: true }).catch((err) => {
+          console.warn('Failed to load bookmarked authors:', err);
+          return { authors: [], pagination: {} as any };
+        }),
+        fetchJournals({ page: 1, pageSize: 100, pinned: true }).catch((err) => {
+          console.warn('Failed to load bookmarked journals:', err);
+          return { journals: [], pagination: {} as any };
+        }),
       ]);
 
-      const savedPapers = papersRes.papers;
-      const savedAuthors = authorsRes.authors;
-      const savedJournals = journalsRes.journals;
+      const savedPapers = papersRes.papers || [];
+      const savedAuthors = authorsRes.authors || [];
+      const savedJournals = journalsRes.journals || [];
 
       setPapers(savedPapers);
       setAuthors(savedAuthors);

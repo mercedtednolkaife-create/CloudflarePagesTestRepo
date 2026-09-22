@@ -1,14 +1,27 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import worker from "./src/worker";
-import { createInMemoryD1 } from "./src/db/inMemoryDb";
+import worker, { D1Database, D1PreparedStatement } from "./src/worker";
+
+function createStubD1(): D1Database {
+  const createStatement = (query: string): D1PreparedStatement => ({
+    bind: () => createStatement(query),
+    all: async () => ({ results: [], success: true }),
+    run: async () => ({ success: true }),
+    first: async () => null,
+  });
+  return {
+    prepare: (query: string) => createStatement(query),
+    batch: async (stmts: D1PreparedStatement[]) => stmts.map(() => ({ results: [], success: true })),
+    exec: async () => {},
+  };
+}
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  const db = createInMemoryD1();
+  const db = createStubD1();
   const env = {
     DB: db,
     JWT_SECRET: process.env.JWT_SECRET || "lexextern_d1_secret_key_2026",

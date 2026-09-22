@@ -11,8 +11,7 @@ export function getRemainingTime(deadlineStr: string): {
   text: string;
 } {
   const target = new Date(deadlineStr + 'T23:59:59').getTime();
-  // Using fixed realistic current reference or actual current time
-  const now = new Date('2026-08-28T20:38:34').getTime();
+  const now = Date.now();
   
   const diff = target - now;
 

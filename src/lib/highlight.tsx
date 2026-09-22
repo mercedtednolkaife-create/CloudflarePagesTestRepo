@@ -18,13 +18,14 @@ export const HighlightText: React.FC<HighlightProps> = ({
   const trimmedQuery = query.trim();
   // Escape special regex characters
   const escapedQuery = trimmedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escapedQuery})`, 'gi');
-  const parts = text.split(regex);
+  const splitRegex = new RegExp(`(${escapedQuery})`, 'i');
+  const testRegex = new RegExp(`^${escapedQuery}$`, 'i');
+  const parts = text.split(splitRegex);
 
   return (
     <span>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        testRegex.test(part) ? (
           <mark key={i} className={className}>
             {part}
           </mark>

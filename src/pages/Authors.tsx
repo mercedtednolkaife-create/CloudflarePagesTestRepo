@@ -48,11 +48,19 @@ export const Authors: React.FC<AuthorsProps> = ({
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Load Authors from GET /api/authors with pagination
-  const loadAuthors = useCallback(async (targetPage = page, targetSize = pageSize) => {
+  // Load Authors from GET /api/authors with pagination (Server-Side Pushdown)
+  const loadAuthors = useCallback(async (
+    targetPage = page,
+    targetSize = pageSize,
+    query = searchQuery,
+    tag = selectedTag
+  ) => {
     setIsLoading(true);
     try {
-      const res = await fetchAuthors(targetPage, targetSize);
+      const res = await fetchAuthors(targetPage, targetSize, {
+        search: query || undefined,
+        tag: tag !== '全部' ? tag : undefined,
+      });
       setAuthors(res.authors);
       setPagination(res.pagination);
     } catch (err: any) {
@@ -61,11 +69,11 @@ export const Authors: React.FC<AuthorsProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, onShowToast]);
+  }, [page, pageSize, searchQuery, selectedTag, onShowToast]);
 
   useEffect(() => {
-    loadAuthors(page, pageSize);
-  }, [page, pageSize, loadAuthors]);
+    loadAuthors(page, pageSize, searchQuery, selectedTag);
+  }, [page, pageSize, searchQuery, selectedTag, loadAuthors]);
 
   // Handle Search Trigger on Enter or Click
   const handleTriggerSearch = () => {
@@ -107,66 +115,56 @@ export const Authors: React.FC<AuthorsProps> = ({
     }
   };
 
-  // Collect all unique tags
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    authors.forEach((a) => (a.tags || []).forEach((t) => set.add(t)));
-    return ['全部', ...Array.from(set)];
-  }, [authors]);
+  // Predefined academic research areas
+  const allTags = useMemo(() => [
+    '全部',
+    '宪法与公法',
+    '私法与民商法',
+    '法哲学与法理学',
+    '国际法与全球治理',
+    '法律经济学',
+    '刑法与刑事司法',
+    '科技与人工智能法',
+  ], []);
 
-  // Filtered authors in current page
-  const displayedAuthors = useMemo(() => {
-    return authors.filter((a) => {
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch =
-        q === '' ||
-        a.name.toLowerCase().includes(q) ||
-        (a.nameCn && a.nameCn.toLowerCase().includes(q)) ||
-        (a.institution?.name || '').toLowerCase().includes(q) ||
-        (a.orcid && a.orcid.toLowerCase().includes(q)) ||
-        (a.tags || []).some((t) => t.toLowerCase().includes(q)) ||
-        (a.tagsCn || []).some((t) => t.toLowerCase().includes(q)) ||
-        (a.ssrnId || '').toLowerCase().includes(q);
-
-      const allAuthorTags = [...(a.tags || []), ...(a.tagsCn || [])];
-      const matchesTag = selectedTag === '全部' || allAuthorTags.includes(selectedTag);
-
-      return matchesSearch && matchesTag;
-    });
-  }, [authors, searchQuery, selectedTag]);
+  // Displayed authors (driven by server-side query)
+  const displayedAuthors = authors;
 
   return (
     <div className="space-y-6 font-sans">
-      {/* Header Banner */}
-      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-zinc-200 shadow-2xs">
+      {/* Header Banner (Apple-style frosted card) */}
+      <div className="bg-white rounded-2xl sm:rounded-[22px] p-6 sm:p-8 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-blue-50 border border-blue-200/60 text-[#0F52BA] text-[11px] font-semibold">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
               <Users className="w-3.5 h-3.5" />
               <span>Scholar Directory & Academic Graph</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-zinc-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               域外法学学者画像库 (Authors)
             </h1>
           </div>
 
           <div className="text-right">
-            <div className="text-2xl font-bold text-zinc-900 font-mono">{pagination.total || authors.length}</div>
-            <div className="text-[11px] text-zinc-500 font-medium">总建档学者</div>
+            <div className="text-2xl font-bold text-[#1D1D1F] font-mono">{pagination.total || authors.length}</div>
+            <div className="text-[11px] text-[#86868B] font-medium">全库建档学者</div>
           </div>
         </div>
 
         {/* Tag Filters */}
-        <div className="mt-6 pt-6 border-t border-zinc-100 flex flex-wrap gap-1.5 items-center">
-          <span className="text-xs font-semibold text-zinc-500 mr-2">研究专长:</span>
+        <div className="mt-6 pt-6 border-t border-black/[0.04] flex flex-wrap gap-1.5 items-center">
+          <span className="text-xs font-semibold text-[#6E6E73] mr-2">研究专长:</span>
           {allTags.map((tag) => (
             <button
               key={tag}
-              onClick={() => setSelectedTag(tag)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+              onClick={() => {
+                setSelectedTag(tag);
+                setPage(1);
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
                 selectedTag === tag
-                  ? 'bg-zinc-900 text-white font-semibold'
-                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
+                  ? 'bg-[#1D1D1F] text-white font-semibold shadow-xs'
+                  : 'bg-[#F5F5F7] text-[#6E6E73] hover:bg-black/[0.06] hover:text-[#1D1D1F]'
               }`}
             >
               {tag === '全部' ? '全部专长' : `#${tag}`}
@@ -176,20 +174,20 @@ export const Authors: React.FC<AuthorsProps> = ({
       </div>
 
       {/* Search and Action Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl border border-zinc-200">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-[22px] border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div className="relative w-full sm:w-96 flex items-center">
-          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[#86868B] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={localSearchInput}
             onKeyDown={handleKeyDown}
             onChange={(e) => setLocalSearchInput(e.target.value)}
-            placeholder="学者姓名、所属机构、SSRN ID (按 Enter 或点击【搜索】)..."
-            className="w-full pl-9 pr-20 py-2 bg-zinc-50 border border-zinc-200 rounded-lg text-xs text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/20 focus:border-[#0F52BA]"
+            placeholder="学者姓名、所属机构、SSRN ID (按 Enter)..."
+            className="w-full pl-9 pr-20 py-2.5 bg-[#F5F5F7] border border-black/[0.06] rounded-full text-xs text-[#1D1D1F] placeholder-[#86868B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition-all"
           />
           <button
             onClick={handleTriggerSearch}
-            className="absolute right-1.5 px-2.5 py-1 bg-zinc-900 hover:bg-[#0F52BA] text-white text-xs font-semibold rounded-md flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+            className="absolute right-1.5 px-3 py-1 bg-[#1D1D1F] hover:bg-[#0071E3] text-white text-xs font-medium rounded-full flex items-center gap-1 transition-all cursor-pointer shadow-xs"
           >
             <span>搜索</span>
             <CornerDownLeft className="w-3 h-3 opacity-70" />
@@ -202,9 +200,9 @@ export const Authors: React.FC<AuthorsProps> = ({
             setLocalSearchInput('');
             setSearchQuery('');
             setPage(1);
-            loadAuthors(1, pageSize);
+            loadAuthors(1, pageSize, '', '全部');
           }}
-          className="px-3 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="px-3.5 py-2 bg-black/[0.04] hover:bg-black/[0.08] text-[#6E6E73] hover:text-[#1D1D1F] rounded-full text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer border border-black/[0.04]"
         >
           <RotateCcw className="w-3.5 h-3.5" />
           <span>重置画像筛选</span>

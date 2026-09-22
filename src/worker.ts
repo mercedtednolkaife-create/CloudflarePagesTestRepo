@@ -332,6 +332,34 @@ async function verifyJWT(token: string, secret = 'lexextern_d1_secret_key_2026')
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
       return null; // Expired
     }
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    // Decode base64url signature safely
+    const paddedSig = sigB64.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = paddedSig.length % 4;
+    const normalizedSig = pad ? paddedSig + '='.repeat(4 - pad) : paddedSig;
+    const binarySig = atob(normalizedSig);
+    const sigBytes = new Uint8Array(binarySig.length);
+    for (let i = 0; i < binarySig.length; i++) {
+      sigBytes[i] = binarySig.charCodeAt(i);
+    }
+
+    const isValid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      sigBytes,
+      encoder.encode(`${headerB64}.${payloadB64}`)
+    );
+
+    if (!isValid) return null;
     return payload;
   } catch {
     return null;
@@ -358,14 +386,6 @@ async function getAuthUser(request: Request, env: Env): Promise<{ id: string; us
     const decoded = await verifyJWT(token, env.JWT_SECRET || 'lexextern_d1_secret_key_2026');
     if (decoded && decoded.userId) {
       return { id: decoded.userId, username: decoded.username, role: decoded.role || 'user' };
-    }
-  }
-
-  const customUserId = request.headers.get('X-User-Id');
-  if (customUserId) {
-    const user = await env.DB.prepare('SELECT id, username, role FROM users WHERE id = ?').bind(customUserId).first<UserRow>();
-    if (user) {
-      return { id: user.id, username: user.username, role: user.role };
     }
   }
 
@@ -443,49 +463,10 @@ export default {
       }
 
       // -------------------------------------------------------------
-      // 2. POST /api/register - 注册新用户
+      // 2. POST /api/register - 注册新用户 (测试阶段关闭自主注册)
       // -------------------------------------------------------------
       if (pathname === '/api/register' && request.method === 'POST') {
-        let body: any;
-        try {
-          body = await request.json();
-        } catch {
-          return errorResponse('Invalid JSON payload', 400);
-        }
-
-        const username = (body.username || '').trim();
-        const password = (body.password || '').trim();
-        const role = body.role || 'user';
-
-        if (!username || !password) {
-          return errorResponse('用户名和密码为必填项', 400);
-        }
-
-        const existing = await env.DB.prepare('SELECT id FROM users WHERE username = ?').bind(username).first();
-        if (existing) {
-          return errorResponse('该用户名已被占用', 409);
-        }
-
-        const id = `usr-${crypto.randomUUID()}`;
-        const password_hash = await hashPassword(password);
-
-        await env.DB.prepare(
-          'INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)'
-        ).bind(id, username, password_hash, role).run();
-
-        const token = await createJWT({ userId: id, username, role }, env.JWT_SECRET || 'lexextern_d1_secret_key_2026');
-        const cookieStr = `token=${token}; HttpOnly; Path=/; Max-Age=604800; SameSite=Lax`;
-
-        return jsonResponse(
-          {
-            success: true,
-            message: '注册成功并已自动登录',
-            token,
-            user: { id, username, role },
-          },
-          201,
-          { 'Set-Cookie': cookieStr }
-        );
+        return errorResponse('当前测试阶段暂未开放自主注册，请联系系统管理员获取分配的学者通行证', 403);
       }
 
       // -------------------------------------------------------------
@@ -508,7 +489,8 @@ export default {
       }
 
       // -------------------------------------------------------------
-      // 5. GET /api/papers - 获取学术论文信息流 (支持 tags、journal、volume、issue、search 筛选与分页)
+      // -------------------------------------------------------------
+      // 5. GET /api/papers - 获取学术论文信息流 (支持 tags、journal、volume、issue、search 筛选与服务端真分页)
       // -------------------------------------------------------------
       if (pathname === '/api/papers' && request.method === 'GET') {
         const tag = searchParams.get('tag') || searchParams.get('tags');
@@ -519,9 +501,66 @@ export default {
         const authUser = await getAuthUser(request, env);
         const currentUserId = authUser?.id || searchParams.get('user_id');
         const { page, pageSize } = parsePaginationParams(searchParams, 15);
+        const offset = (page - 1) * pageSize;
+        const bookmarkedOnly = searchParams.get('bookmarked') === 'true' || searchParams.get('saved') === 'true';
 
-        // 1. 获取全部论文及关联期刊信息
-        const papersQuery = `
+        const whereClauses: string[] = [];
+        const params: any[] = [];
+
+        if (bookmarkedOnly) {
+          if (currentUserId) {
+            whereClauses.push(`p.id IN (SELECT entity_id FROM user_bookmarks WHERE user_id = ? AND entity_type = 'paper')`);
+            params.push(currentUserId);
+          } else {
+            whereClauses.push('1 = 0');
+          }
+        }
+
+        if (tag && tag !== '全部领域' && tag !== '全部') {
+          whereClauses.push(`(p.tags LIKE ? OR p.tags_cn LIKE ?)`);
+          params.push(`%${tag}%`, `%${tag}%`);
+        }
+
+        if (journalFilter && journalFilter !== 'all' && journalFilter !== '全部期刊') {
+          whereClauses.push(`(
+            LOWER(j.name) = LOWER(?) OR 
+            LOWER(COALESCE(j.name_cn, '')) = LOWER(?) OR 
+            LOWER(COALESCE(j.abbreviation, '')) = LOWER(?) OR 
+            LOWER(COALESCE(p.journal_name_cn, '')) = LOWER(?)
+          )`);
+          params.push(journalFilter, journalFilter, journalFilter, journalFilter);
+        }
+
+        if (volumeFilter && volumeFilter !== 'all' && volumeFilter !== '全部卷') {
+          whereClauses.push(`(LOWER(COALESCE(p.volume, '')) = LOWER(?) OR LOWER(COALESCE(p.volume_issue, '')) LIKE ?)`);
+          params.push(volumeFilter, `%${volumeFilter.toLowerCase()}%`);
+        }
+
+        if (issueFilter && issueFilter !== 'all' && issueFilter !== '全部期') {
+          whereClauses.push(`(LOWER(COALESCE(p.issue, '')) = LOWER(?) OR LOWER(COALESCE(p.volume_issue, '')) LIKE ?)`);
+          params.push(issueFilter, `%${issueFilter.toLowerCase()}%`);
+        }
+
+        if (keyword && keyword.trim()) {
+          const kw = `%${keyword.trim().toLowerCase()}%`;
+          whereClauses.push(`(
+            LOWER(p.title) LIKE ? OR 
+            LOWER(COALESCE(p.title_cn, '')) LIKE ? OR 
+            LOWER(COALESCE(p.abstract, '')) LIKE ? OR 
+            LOWER(COALESCE(p.abstract_cn, '')) LIKE ? OR 
+            LOWER(COALESCE(p.authors_json, '')) LIKE ? OR 
+            LOWER(COALESCE(p.journal_name_cn, '')) LIKE ? OR 
+            LOWER(COALESCE(j.name, '')) LIKE ? OR 
+            LOWER(COALESCE(j.name_cn, '')) LIKE ?
+          )`);
+          params.push(kw, kw, kw, kw, kw, kw, kw, kw);
+        }
+
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+        // 利用 D1 batch 单次往返同时拉取总数与当前页 15 条切片
+        const countQuery = `SELECT count(*) as total FROM papers p LEFT JOIN journals j ON p.journal_id = j.id ${whereSql}`;
+        const dataQuery = `
           SELECT 
             p.id,
             p.journal_id,
@@ -537,7 +576,7 @@ export default {
             p.issue,
             p.volume_issue,
             p.published_at,
-            p.url,
+            p.canonical_url AS url,
             p.canonical_url,
             p.pdf_url,
             p.doi,
@@ -558,63 +597,33 @@ export default {
             j.cover_color AS journal_color
           FROM papers p
           LEFT JOIN journals j ON p.journal_id = j.id
+          ${whereSql}
           ORDER BY p.published_at DESC
+          LIMIT ? OFFSET ?
         `;
-        const { results: paperResults } = await env.DB.prepare(papersQuery).all<PaperRow & {
-          j_name_cn?: string | null;
-        }>();
-        const rawPapers = paperResults || [];
 
-        // 2. 获取论文作者关联
-        const authorsQuery = `
-          SELECT 
-            pa.paper_id,
-            a.id AS author_id,
-            a.name AS author_name,
-            a.name_cn,
-            a.ssrn_id,
-            i.name AS institution_name
-          FROM paper_authors pa
-          JOIN authors a ON pa.author_id = a.id
-          LEFT JOIN institutions i ON a.institution_id = i.id
-        `;
-        const { results: authorResults } = await env.DB.prepare(authorsQuery).all<{
-          paper_id: string;
-          author_id: string;
-          author_name: string;
-          name_cn: string | null;
-          ssrn_id: string | null;
-          institution_name: string | null;
-        }>();
+        const countStmt = env.DB.prepare(countQuery).bind(...params);
+        const dataStmt = env.DB.prepare(dataQuery).bind(...params, pageSize, offset);
 
-        const authorsByPaper = (authorResults || []).reduce<Record<string, any[]>>((acc, row) => {
-          if (!acc[row.paper_id]) acc[row.paper_id] = [];
-          acc[row.paper_id].push({
-            id: row.author_id,
-            name: row.author_name,
-            nameCn: row.name_cn,
-            ssrnId: row.ssrn_id,
-            institution: row.institution_name,
-          });
-          return acc;
-        }, {});
+        const [countRes, dataRes] = await env.DB.batch<any>([countStmt, dataStmt]);
+        const total = (countRes?.results?.[0] as any)?.total || 0;
+        const rawPapers = (dataRes?.results as (PaperRow & { j_name_cn?: string | null })[]) || [];
 
-        // 3. 获取用户专属收藏状态 (严格按当前登录用户绑定)
+        // 仅对当前页的 15 篇论文针对当前登录用户查一次收藏状态
         let bookmarkedPaperIds = new Set<string>();
-        if (currentUserId) {
-          const bookmarksQuery = `
+        if (currentUserId && rawPapers.length > 0) {
+          const placeholders = rawPapers.map(() => '?').join(',');
+          const bmQuery = `
             SELECT entity_id FROM user_bookmarks 
-            WHERE user_id = ? AND entity_type = 'paper'
+            WHERE user_id = ? AND entity_type = 'paper' AND entity_id IN (${placeholders})
           `;
-          const { results: bookmarkResults } = await env.DB.prepare(bookmarksQuery)
-            .bind(currentUserId)
+          const { results: bookmarkResults } = await env.DB.prepare(bmQuery)
+            .bind(currentUserId, ...rawPapers.map((p) => p.id))
             .all<{ entity_id: string }>();
           bookmarkedPaperIds = new Set((bookmarkResults || []).map((b) => b.entity_id));
         }
 
-        // 4. 组装论文数据
-        let papers = rawPapers.map((row) => {
-          const paperAuthors = authorsByPaper[row.id] || [];
+        const papers = rawPapers.map((row) => {
           const tags = parseJsonField<string[]>(row.tags, []);
           const tagsCn = parseJsonField<string[]>(row.tags_cn, []);
           const parsedAuthorsJson = parseJsonField<any[]>(row.authors_json, []);
@@ -651,81 +660,90 @@ export default {
             readingTime: row.reading_time || 15,
             featured: Boolean(row.featured),
             citationsCount: row.citations_count || 0,
-            authors: paperAuthors.length > 0 ? paperAuthors.map((a) => a.name) : parsedAuthorsJson.map((a: any) => a.name),
-            authorsDetail: paperAuthors.length > 0 ? paperAuthors : parsedAuthorsJson,
+            authors: parsedAuthorsJson.map((a: any) => typeof a === 'string' ? a : (a?.name || a?.name_cn || '法学学者')),
+            authorsDetail: parsedAuthorsJson,
             isBookmarked: bookmarkedPaperIds.has(row.id),
           };
         });
 
-        // 5. 多维度筛选
-        const bookmarkedOnly = searchParams.get('bookmarked') === 'true' || searchParams.get('saved') === 'true';
-        if (bookmarkedOnly) {
-          papers = papers.filter((p) => p.isBookmarked);
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        const pagination = {
+          page,
+          pageSize,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        };
+
+        const extraHeaders: Record<string, string> = {};
+        if (!currentUserId && !bookmarkedOnly) {
+          extraHeaders['Cache-Control'] = 'public, max-age=30, s-maxage=300, stale-while-revalidate=600';
+        } else {
+          extraHeaders['Cache-Control'] = 'private, no-cache, no-store, must-revalidate';
+          extraHeaders['Vary'] = 'Authorization, Cookie';
         }
-
-        if (tag && tag !== '全部领域' && tag !== '全部') {
-          papers = papers.filter((p) => p.tags.includes(tag) || (p.tagsCn && p.tagsCn.includes(tag)));
-        }
-
-        if (journalFilter && journalFilter !== 'all' && journalFilter !== '全部期刊') {
-          papers = papers.filter((p) => 
-            p.journalName.toLowerCase() === journalFilter.toLowerCase() ||
-            p.journalNameCn?.toLowerCase() === journalFilter.toLowerCase() ||
-            p.journalAbbr.toLowerCase() === journalFilter.toLowerCase()
-          );
-        }
-
-        if (volumeFilter && volumeFilter !== 'all' && volumeFilter !== '全部卷') {
-          papers = papers.filter((p) => p.volume?.toLowerCase() === volumeFilter.toLowerCase());
-        }
-
-        if (issueFilter && issueFilter !== 'all' && issueFilter !== '全部期') {
-          papers = papers.filter((p) => p.issue?.toLowerCase() === issueFilter.toLowerCase());
-        }
-
-        if (keyword && keyword.trim()) {
-          const kw = keyword.trim().toLowerCase();
-          papers = papers.filter((p) =>
-            p.title.toLowerCase().includes(kw) ||
-            (p.titleCn && p.titleCn.toLowerCase().includes(kw)) ||
-            p.abstract.toLowerCase().includes(kw) ||
-            (p.abstractCn && p.abstractCn.toLowerCase().includes(kw)) ||
-            (p.categoryCn && p.categoryCn.toLowerCase().includes(kw)) ||
-            p.authors.some((a) => a.toLowerCase().includes(kw)) ||
-            p.journalName.toLowerCase().includes(kw) ||
-            (p.journalNameCn && p.journalNameCn.toLowerCase().includes(kw))
-          );
-        }
-
-        // 6. 优先将当前用户收藏的文献置顶
-        papers.sort((a, b) => {
-          if (a.isBookmarked === b.isBookmarked) {
-            return (b.publishedAt || '').localeCompare(a.publishedAt || '');
-          }
-          return a.isBookmarked ? -1 : 1;
-        });
-
-        // 7. 分页切片与元数据构建
-        const paginated = paginateArray(papers, page, pageSize);
 
         return jsonResponse({
           success: true,
-          data: paginated.data,
-          pagination: paginated.pagination,
-          total: paginated.total,
+          data: papers,
+          pagination,
+          total,
           filterTag: tag || null,
-        });
+        }, 200, extraHeaders);
       }
 
       // -------------------------------------------------------------
-      // 6. GET /api/authors - 获取学者画像库 (支持分页)
+      // -------------------------------------------------------------
+      // 6. GET /api/authors - 获取学者画像库 (支持检索、标签与服务端分页)
       // -------------------------------------------------------------
       if (pathname === '/api/authors' && request.method === 'GET') {
         const authUser = await getAuthUser(request, env);
         const currentUserId = authUser?.id || searchParams.get('user_id');
+        const q = (searchParams.get('q') || searchParams.get('search') || '').trim();
+        const tag = (searchParams.get('tag') || searchParams.get('tags') || '').trim();
+        const bookmarkedOnly = searchParams.get('bookmarked') === 'true' || searchParams.get('saved') === 'true';
         const { page, pageSize } = parsePaginationParams(searchParams, 15);
+        const offset = (page - 1) * pageSize;
 
-        const query = `
+        const whereClauses: string[] = [`(a.status = 'active' OR a.status IS NULL)`];
+        const params: any[] = [];
+
+        if (bookmarkedOnly) {
+          if (currentUserId) {
+            whereClauses.push(`a.id IN (SELECT entity_id FROM user_bookmarks WHERE user_id = ? AND entity_type = 'author')`);
+            params.push(currentUserId);
+          } else {
+            whereClauses.push('1 = 0');
+          }
+        }
+
+        if (tag && tag !== '全部' && tag !== '全部领域') {
+          whereClauses.push(`a.tags_cn LIKE ?`);
+          params.push(`%${tag}%`);
+        }
+
+        if (q) {
+          const kw = `%${q.toLowerCase()}%`;
+          whereClauses.push(`(
+            LOWER(a.name) LIKE ? OR 
+            LOWER(COALESCE(a.name_cn, '')) LIKE ? OR 
+            LOWER(COALESCE(a.tags_cn, '')) LIKE ? OR 
+            LOWER(COALESCE(i.name, '')) LIKE ? OR 
+            LOWER(COALESCE(a.orcid, '')) LIKE ? OR 
+            LOWER(COALESCE(a.ssrn_id, '')) LIKE ?
+          )`);
+          params.push(kw, kw, kw, kw, kw, kw);
+        }
+
+        const whereSql = `WHERE ${whereClauses.join(' AND ')}`;
+        const countQuery = `
+          SELECT count(*) as total 
+          FROM authors a
+          LEFT JOIN institutions i ON a.current_institution_id = i.id
+          ${whereSql}
+        `;
+        const dataQuery = `
           SELECT 
             a.id,
             a.name,
@@ -734,66 +752,43 @@ export default {
             a.orcid,
             a.ssrn_id,
             a.profile_url,
-            a.institution_id,
-            a.tags,
+            a.current_institution_id AS institution_id,
             a.tags_cn,
             i.name AS institution_name,
             i.domain AS institution_domain,
             i.country AS institution_country,
             i.type AS institution_type
           FROM authors a
-          LEFT JOIN institutions i ON a.institution_id = i.id
+          LEFT JOIN institutions i ON a.current_institution_id = i.id
+          ${whereSql}
           ORDER BY a.name ASC
+          LIMIT ? OFFSET ?
         `;
-        const { results } = await env.DB.prepare(query).all<AuthorRow & {
-          institution_type?: string | null;
-        }>();
 
-        // 获取学者关联的论文列表
-        const authorPapersQuery = `
-          SELECT 
-            pa.author_id,
-            p.id AS paper_id,
-            p.title,
-            p.published_at,
-            p.url
-          FROM paper_authors pa
-          JOIN papers p ON pa.paper_id = p.id
-        `;
-        const { results: authorPaperResults } = await env.DB.prepare(authorPapersQuery).all<{
-          author_id: string;
-          paper_id: string;
-          title: string;
-          published_at: string;
-          url: string;
-        }>();
+        const [countRes, dataRes] = await env.DB.batch<any>([
+          env.DB.prepare(countQuery).bind(...params),
+          env.DB.prepare(dataQuery).bind(...params, pageSize, offset),
+        ]);
 
-        const papersByAuthor = (authorPaperResults || []).reduce<Record<string, any[]>>((acc, row) => {
-          if (!acc[row.author_id]) acc[row.author_id] = [];
-          acc[row.author_id].push({
-            id: row.paper_id,
-            title: row.title,
-            publishedAt: row.published_at,
-            url: row.url,
-          });
-          return acc;
-        }, {});
+        const total = (countRes?.results?.[0] as any)?.total || 0;
+        const results = (dataRes?.results as (AuthorRow & { institution_type?: string | null })[]) || [];
 
-        // 收藏状态 (严格按当前用户绑定)
+        // 仅对当前页的 15 位学者针对当前用户查询收藏状态
         let bookmarkedAuthorIds = new Set<string>();
-        if (currentUserId) {
+        if (currentUserId && results.length > 0) {
+          const placeholders = results.map(() => '?').join(',');
           const bookmarksQuery = `
             SELECT entity_id FROM user_bookmarks 
-            WHERE user_id = ? AND entity_type = 'author'
+            WHERE user_id = ? AND entity_type = 'author' AND entity_id IN (${placeholders})
           `;
           const { results: bookmarkResults } = await env.DB.prepare(bookmarksQuery)
-            .bind(currentUserId)
+            .bind(currentUserId, ...results.map((a) => a.id))
             .all<{ entity_id: string }>();
           bookmarkedAuthorIds = new Set((bookmarkResults || []).map((b) => b.entity_id));
         }
 
-        let authors = (results || []).map((row) => {
-          const authorPapers = papersByAuthor[row.id] || [];
+        const authors = results.map((row) => {
+          const tagsCn = parseJsonField<string[]>(row.tags_cn, []);
           return {
             id: row.id,
             name: row.name,
@@ -814,35 +809,38 @@ export default {
                   type: row.institution_type || 'University',
                 }
               : null,
-            tags: parseJsonField<string[]>(row.tags, []),
-            tagsCn: parseJsonField<string[]>(row.tags_cn, []),
-            papersCount: authorPapers.length,
-            papers: authorPapers,
+            tags: tagsCn,
+            tagsCn: tagsCn,
+            papersCount: 0,
+            papers: [],
             isBookmarked: bookmarkedAuthorIds.has(row.id),
           };
         });
 
-        const bookmarkedOnly = searchParams.get('bookmarked') === 'true' || searchParams.get('saved') === 'true';
-        if (bookmarkedOnly) {
-          authors = authors.filter((a) => a.isBookmarked);
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        const pagination = {
+          page,
+          pageSize,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        };
+
+        const extraHeaders: Record<string, string> = {};
+        if (!currentUserId && !bookmarkedOnly) {
+          extraHeaders['Cache-Control'] = 'public, max-age=60, s-maxage=600, stale-while-revalidate=1800';
+        } else {
+          extraHeaders['Cache-Control'] = 'private, no-cache, no-store, must-revalidate';
+          extraHeaders['Vary'] = 'Authorization, Cookie';
         }
-
-        // 优先将已标星学者置顶
-        authors.sort((a, b) => {
-          if (a.isBookmarked === b.isBookmarked) {
-            return a.name.localeCompare(b.name);
-          }
-          return a.isBookmarked ? -1 : 1;
-        });
-
-        const paginated = paginateArray(authors, page, pageSize);
 
         return jsonResponse({
           success: true,
-          data: paginated.data,
-          pagination: paginated.pagination,
-          total: paginated.total,
-        });
+          data: authors,
+          pagination,
+          total,
+        }, 200, extraHeaders);
       }
 
       // -------------------------------------------------------------
@@ -889,6 +887,7 @@ export default {
             i.domain AS host_domain
           FROM events e
           LEFT JOIN institutions i ON e.host_id = i.id
+          WHERE (e.is_deleted = 0 OR e.is_deleted IS NULL)
           ORDER BY e.is_pinned DESC, e.deadline ASC
         `;
         const { results } = await env.DB.prepare(query).all<EventRow & {
@@ -954,6 +953,8 @@ export default {
           success: true,
           data: formatted,
           total: formatted.length,
+        }, 200, {
+          'Cache-Control': 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600',
         });
       }
 
@@ -1154,12 +1155,20 @@ export default {
 
         const paginated = paginateArray(formatted, page, pageSize);
 
+        const extraHeaders: Record<string, string> = {};
+        if (!userId && !pinnedOnly) {
+          extraHeaders['Cache-Control'] = 'public, max-age=60, s-maxage=3600, stale-while-revalidate=86400';
+        } else {
+          extraHeaders['Cache-Control'] = 'private, no-cache, no-store, must-revalidate';
+          extraHeaders['Vary'] = 'Authorization, Cookie';
+        }
+
         return jsonResponse({
           success: true,
           data: paginated.data,
           pagination: paginated.pagination,
           total: paginated.total,
-        });
+        }, 200, extraHeaders);
       }
 
       // -------------------------------------------------------------
@@ -1169,46 +1178,45 @@ export default {
         const authUser = await getAuthUser(request, env);
         const userId = authUser?.id || searchParams.get('user_id');
 
-        let savedCount = 0;
-        if (userId) {
-          const { results: bms } = await env.DB.prepare(
-            `SELECT count(*) as cnt FROM user_bookmarks WHERE user_id = ?`
-          ).bind(userId).all<{ cnt: number }>();
-          savedCount = bms?.[0]?.cnt || 0;
-        }
+        // 单次 D1 batch 往返聚合所有统计指标
+        const stmtSaved = userId
+          ? env.DB.prepare(`SELECT count(*) as cnt FROM user_bookmarks WHERE user_id = ?`).bind(userId)
+          : env.DB.prepare(`SELECT 0 as cnt`);
 
-        // 计算即将截止的活动数 (7天内)
-        const now = new Date();
-        const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-        const { results: evts } = await env.DB.prepare(`SELECT deadline FROM events`).all<{ deadline: string }>();
-        const urgentEventCount = (evts || []).filter((e) => {
-          const d = new Date(e.deadline);
-          return !isNaN(d.getTime()) && d >= now && d <= sevenDaysLater;
-        }).length;
+        const stmtUrgent = env.DB.prepare(`
+          SELECT count(*) as cnt FROM events 
+          WHERE (is_deleted = 0 OR is_deleted IS NULL) 
+            AND (submission_deadline IS NOT NULL OR deadline IS NOT NULL)
+            AND date(COALESCE(submission_deadline, deadline)) >= date('now') 
+            AND date(COALESCE(submission_deadline, deadline)) <= date('now', '+7 days')
+        `);
 
-        // 计算置顶期刊数 (针对当前登录用户)
-        let pinnedJournalCount = 0;
-        if (userId) {
-          const { results: jBms } = await env.DB.prepare(
-            `SELECT count(*) as cnt FROM user_bookmarks WHERE user_id = ? AND entity_type = 'journal'`
-          ).bind(userId).all<{ cnt: number }>();
-          pinnedJournalCount = jBms?.[0]?.cnt || 0;
-        } else {
-          const { results: jListPinned } = await env.DB.prepare(`SELECT is_pinned FROM journals`).all<{ is_pinned: number }>();
-          pinnedJournalCount = (jListPinned || []).filter((j) => j.is_pinned === 1).length;
-        }
+        const stmtPinnedJ = userId
+          ? env.DB.prepare(`SELECT count(*) as cnt FROM user_bookmarks WHERE user_id = ? AND entity_type = 'journal'`).bind(userId)
+          : env.DB.prepare(`SELECT count(*) as cnt FROM journals WHERE is_pinned = 1`);
 
-        const { results: jListTotal } = await env.DB.prepare(`SELECT count(*) as cnt FROM journals`).all<{ cnt: number }>();
-        const journalsCount = jListTotal?.[0]?.cnt || 0;
+        const stmtJournals = env.DB.prepare(`SELECT count(*) as cnt FROM journals WHERE (status = 'active' OR status IS NULL)`);
+        const stmtWishlist = env.DB.prepare(`SELECT count(*) as cnt FROM wishlists`);
+        const stmtAuthors = env.DB.prepare(`SELECT count(*) as cnt FROM authors WHERE (status = 'active' OR status IS NULL)`);
+        const stmtPapers = env.DB.prepare(`SELECT count(*) as cnt FROM papers`);
 
-        const { results: wList } = await env.DB.prepare(`SELECT count(*) as cnt FROM wishlists`).all<{ cnt: number }>();
-        const wishlistCount = wList?.[0]?.cnt || 0;
+        const [savedRes, urgentRes, pinnedJRes, journalsRes, wishlistRes, authorsRes, papersRes] = await env.DB.batch<any>([
+          stmtSaved,
+          stmtUrgent,
+          stmtPinnedJ,
+          stmtJournals,
+          stmtWishlist,
+          stmtAuthors,
+          stmtPapers,
+        ]);
 
-        const { results: aList } = await env.DB.prepare(`SELECT count(*) as cnt FROM authors`).all<{ cnt: number }>();
-        const authorsCount = aList?.[0]?.cnt || 0;
-
-        const { results: pList } = await env.DB.prepare(`SELECT count(*) as cnt FROM papers`).all<{ cnt: number }>();
-        const papersCount = pList?.[0]?.cnt || 0;
+        const savedCount = (savedRes?.results?.[0] as any)?.cnt || 0;
+        const urgentEventCount = (urgentRes?.results?.[0] as any)?.cnt || 0;
+        const pinnedJournalCount = (pinnedJRes?.results?.[0] as any)?.cnt || 0;
+        const journalsCount = (journalsRes?.results?.[0] as any)?.cnt || 0;
+        const wishlistCount = (wishlistRes?.results?.[0] as any)?.cnt || 0;
+        const authorsCount = (authorsRes?.results?.[0] as any)?.cnt || 0;
+        const papersCount = (papersRes?.results?.[0] as any)?.cnt || 0;
 
         return jsonResponse({
           success: true,
@@ -1483,8 +1491,17 @@ export default {
         const authUser = await getAuthUser(request, env);
         const userId = authUser?.id || searchParams.get('user_id');
         const { page, pageSize } = parsePaginationParams(searchParams, 15);
+        const offset = (page - 1) * pageSize;
 
-        let query = `
+        const whereClauses: string[] = ['1=1'];
+        const params: any[] = [];
+        if (tag && tag !== '全部领域' && tag !== '全部') {
+          whereClauses.push('(p.tags LIKE ? OR p.tags_cn LIKE ?)');
+          params.push(`%${tag}%`, `%${tag}%`);
+        }
+
+        const countQuery = `SELECT count(*) as total FROM papers p LEFT JOIN journals j ON p.journal_id = j.id WHERE ${whereClauses.join(' AND ')}`;
+        const dataQuery = `
           SELECT 
             p.id,
             p.journal_id,
@@ -1499,7 +1516,7 @@ export default {
             p.issue,
             p.volume_issue,
             p.published_at,
-            p.url,
+            p.canonical_url AS url,
             p.pdf_url,
             p.doi,
             p.authors_json,
@@ -1515,32 +1532,32 @@ export default {
             j.name AS journal_name,
             j.name_cn AS j_name_cn,
             j.abbreviation AS journal_abbr,
-            j.jurisdiction
+            'All' AS jurisdiction
           FROM papers p
           LEFT JOIN journals j ON p.journal_id = j.id
-          WHERE 1=1
+          WHERE ${whereClauses.join(' AND ')}
+          ORDER BY p.published_at DESC
+          LIMIT ? OFFSET ?
         `;
-        const params: any[] = [];
 
-        if (jurisdiction && jurisdiction !== 'All' && jurisdiction !== '全部') {
-          query += ` AND (j.jurisdiction = ?)`;
-          params.push(jurisdiction);
-        }
+        const [countRes, dataRes] = await env.DB.batch<any>([
+          env.DB.prepare(countQuery).bind(...params),
+          env.DB.prepare(dataQuery).bind(...params, pageSize, offset),
+        ]);
 
-        query += ` ORDER BY p.published_at DESC`;
-
-        const stmt = params.length > 0 ? env.DB.prepare(query).bind(...params) : env.DB.prepare(query);
-        const { results } = await stmt.all<PaperRow & { journal_name?: string; j_name_cn?: string; journal_abbr?: string; jurisdiction?: string }>();
+        const total = (countRes?.results?.[0] as any)?.total || 0;
+        const results = (dataRes?.results as (PaperRow & { journal_name?: string; j_name_cn?: string; journal_abbr?: string; jurisdiction?: string })[]) || [];
 
         // 联合查询收藏 (旧 article 收藏记录已全部归并为 paper 类型)
         let savedIds = new Set<string>();
-        if (userId) {
-          const bmQuery = `SELECT entity_id FROM user_bookmarks WHERE user_id = ? AND entity_type = 'paper'`;
-          const { results: bmResults } = await env.DB.prepare(bmQuery).bind(userId).all<{ entity_id: string }>();
+        if (userId && results.length > 0) {
+          const placeholders = results.map(() => '?').join(',');
+          const bmQuery = `SELECT entity_id FROM user_bookmarks WHERE user_id = ? AND entity_type = 'paper' AND entity_id IN (${placeholders})`;
+          const { results: bmResults } = await env.DB.prepare(bmQuery).bind(userId, ...results.map(r => r.id)).all<{ entity_id: string }>();
           savedIds = new Set((bmResults || []).map((b) => b.entity_id));
         }
 
-        let filtered = (results || []).map((row) => {
+        const filtered = results.map((row) => {
           const parsedAuthorsJson = parseJsonField<any[]>(row.authors_json, []);
           const authorNames: string[] = parsedAuthorsJson.length > 0
             ? parsedAuthorsJson.map((a: any) => (typeof a === 'string' ? a : (a?.name || a?.name_cn || '法学学者')))
@@ -1570,21 +1587,30 @@ export default {
           };
         });
 
-        if (tag && tag !== '全部领域' && tag !== '全部') {
-          filtered = filtered.filter((a) => a.tags.includes(tag));
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        const pagination = {
+          page,
+          pageSize,
+          total,
+          totalPages,
+          hasNext: page < totalPages,
+          hasPrev: page > 1,
+        };
+
+        const extraHeaders: Record<string, string> = {};
+        if (!userId) {
+          extraHeaders['Cache-Control'] = 'public, max-age=30, s-maxage=300, stale-while-revalidate=600';
+        } else {
+          extraHeaders['Cache-Control'] = 'private, no-cache, no-store, must-revalidate';
+          extraHeaders['Vary'] = 'Authorization, Cookie';
         }
-
-        // 收藏文献优先置顶
-        filtered.sort((a, b) => (b.saved ? 1 : 0) - (a.saved ? 1 : 0));
-
-        const paginated = paginateArray(filtered, page, pageSize);
 
         return jsonResponse({
           success: true,
-          data: paginated.data,
-          pagination: paginated.pagination,
-          total: paginated.total,
-        });
+          data: filtered,
+          pagination,
+          total,
+        }, 200, extraHeaders);
       }
 
       // 404 Not Found

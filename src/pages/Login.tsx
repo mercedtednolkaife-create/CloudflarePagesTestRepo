@@ -138,43 +138,20 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
           <KeyRound className="w-6 h-6 text-[#0F52BA]" />
         </div>
         <h2 className="text-2xl font-bold tracking-tight text-zinc-900 font-editorial-heading">
-          {mode === 'login' ? '学者与管理员登录' : '创建学者通行证'}
+          学者与管理员登录
         </h2>
         <p className="text-xs text-zinc-500">
           基于 Cloudflare D1 密码哈希认证 · 支持全文检索与私有书签同步
         </p>
       </div>
 
-      {/* Mode Switcher */}
-      <div className="grid grid-cols-2 p-1 bg-zinc-100 rounded-xl text-xs font-semibold">
-        <button
-          type="button"
-          onClick={() => {
-            setMode('login');
-            setErrorMessage(null);
-            setSuccessMessage(null);
-          }}
-          className={`py-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            mode === 'login' ? 'bg-white text-zinc-900 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900'
-          }`}
-        >
-          <LogIn className="w-3.5 h-3.5" />
-          <span>账号登录</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMode('register');
-            setErrorMessage(null);
-            setSuccessMessage(null);
-          }}
-          className={`py-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            mode === 'register' ? 'bg-white text-zinc-900 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900'
-          }`}
-        >
-          <UserPlus className="w-3.5 h-3.5" />
-          <span>注册新账号</span>
-        </button>
+      {/* Beta Access Notice */}
+      <div className="p-3 bg-blue-50/70 border border-blue-200/70 rounded-xl text-xs text-blue-900 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-[#0F52BA] shrink-0" />
+          <span className="font-medium">当前阶段仅限持证学者登录</span>
+        </div>
+        <span className="text-[11px] text-blue-600 bg-blue-100/70 px-2 py-0.5 rounded-md">统一签发</span>
       </div>
 
       {/* Alerts */}

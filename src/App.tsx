@@ -183,7 +183,7 @@ function AppContent() {
   };
 
   // Add Wishlist Item Handler
-  const handleAddWishlistItem = async (item: Omit<WishlistItem, 'id' | 'submittedAt' | 'votes'>) => {
+  const handleAddWishlistItem = async (item: Omit<WishlistItem, 'id' | 'submittedAt' | 'votes'>): Promise<boolean> => {
     try {
       const created = await createWishlistItem({
         name: item.name,
@@ -194,8 +194,10 @@ function AppContent() {
       setWishlist((prev) => [created, ...prev]);
       setSummary((prev) => ({ ...prev, wishlistCount: prev.wishlistCount + 1 }));
       showToast(`已成功将【${item.name}】提交至收录心愿单并持久化至 D1 数据库！`);
+      return true;
     } catch (err: any) {
       showToast(err?.message || '提交失败，请重试', 'error');
+      return false;
     }
   };
 

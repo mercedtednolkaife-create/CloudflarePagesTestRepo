@@ -250,7 +250,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                 }`}
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>登录 / 注册</span>
+                <span>学者通行证登录</span>
               </button>
             )}
           </div>

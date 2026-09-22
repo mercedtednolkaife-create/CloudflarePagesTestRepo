@@ -187,6 +187,7 @@ export async function fetchAuthors(
   pageSize = 15,
   options?: {
     search?: string;
+    tag?: string;
     bookmarked?: boolean;
   }
 ): Promise<{ authors: Author[]; pagination: PaginationMeta }> {
@@ -195,6 +196,9 @@ export async function fetchAuthors(
   params.set('pageSize', String(pageSize));
   if (options?.search && options.search.trim()) {
     params.set('q', options.search.trim());
+  }
+  if (options?.tag && options.tag !== '全部' && options.tag !== '全部领域') {
+    params.set('tag', options.tag);
   }
   if (options?.bookmarked) {
     params.set('bookmarked', 'true');
