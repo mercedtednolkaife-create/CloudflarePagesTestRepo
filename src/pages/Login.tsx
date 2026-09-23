@@ -106,7 +106,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
           </div>
           <div className="flex justify-between py-1">
             <span className="text-zinc-500">鉴权方式</span>
-            <span className="text-zinc-700">D1 SQLite + Web Crypto SHA-256 / JWT</span>
+            <span className="text-zinc-700">Web Crypto SHA-256 / JWT 安全凭据认证</span>
           </div>
         </div>
 
@@ -141,7 +141,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
           学者与管理员登录
         </h2>
         <p className="text-xs text-zinc-500">
-          基于 Cloudflare D1 密码哈希认证 · 支持全文检索与私有书签同步
+          学者通行证安全凭据认证 · 支持全文检索与私有书签同步
         </p>
       </div>
 

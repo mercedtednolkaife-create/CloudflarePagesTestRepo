@@ -157,7 +157,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
                 <h3 className="font-editorial-heading font-bold text-base text-zinc-900">
                   提交新的收录心愿
                 </h3>
-                <p className="text-xs text-zinc-500">直接写入 Cloudflare D1 数据库</p>
+                <p className="text-xs text-zinc-500">提交至学术智库收录评估</p>
               </div>
             </div>
 
@@ -165,7 +165,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
               <div className="mb-4 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>
-                  <strong>提交成功！</strong> 已存入 D1 数据库待处理队列，页面已完成实时同步。
+                  <strong>提交成功！</strong> 已收录至心愿单，系统将尽快评估并推进数据采编。
                 </span>
               </div>
             )}
@@ -251,7 +251,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>正在写入 Cloudflare D1...</span>
+                    <span>正在提交心愿单...</span>
                   </>
                 ) : (
                   <>
@@ -273,7 +273,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
                 <h3 className="font-editorial-heading font-bold text-base text-zinc-900">
                   心愿单收录追踪队列
                 </h3>
-                <p className="text-xs text-zinc-500">来源于 D1 数据库 wishlists 表</p>
+                <p className="text-xs text-zinc-500">汇聚学者关注度最高的研究领域与学术期刊</p>
               </div>
 
               {/* Search & Refresh in table */}
@@ -336,7 +336,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
             {isLoading ? (
               <div className="py-12 text-center text-xs text-zinc-400 flex flex-col items-center justify-center gap-2">
                 <Loader2 className="w-6 h-6 animate-spin text-[#0F52BA]" />
-                <span>正在从 Cloudflare D1 数据库加载心愿单...</span>
+                <span>正在加载心愿单列表...</span>
               </div>
             ) : (
               <div className="overflow-x-auto rounded-lg border border-zinc-200">

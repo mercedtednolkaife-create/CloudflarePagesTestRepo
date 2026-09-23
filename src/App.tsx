@@ -151,7 +151,7 @@ function AppContent() {
       setEvents(academicEvents);
     } catch (err: any) {
       console.error('Initial summary fetch failed:', err);
-      setApiError(err?.message || '无法连接至 Cloudflare D1 本地后端接口');
+      setApiError(err?.message || '无法连接至学术图谱数据库接口');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -193,7 +193,7 @@ function AppContent() {
       });
       setWishlist((prev) => [created, ...prev]);
       setSummary((prev) => ({ ...prev, wishlistCount: prev.wishlistCount + 1 }));
-      showToast(`已成功将【${item.name}】提交至收录心愿单并持久化至 D1 数据库！`);
+      showToast(`已成功将【${item.name}】提交至收录心愿单！`);
       return true;
     } catch (err: any) {
       showToast(err?.message || '提交失败，请重试', 'error');
@@ -322,7 +322,7 @@ function AppContent() {
       <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center font-sans gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-[#0F52BA]" />
         <p className="text-xs text-zinc-500 font-medium tracking-wide">
-          正在核验学者通行证凭据 (Cloudflare D1)...
+          正在核验学者通行证凭据...
         </p>
       </div>
     );
@@ -356,7 +356,7 @@ function AppContent() {
 
         {/* Footer */}
         <footer className="bg-white text-zinc-400 border-t border-zinc-200 py-4 text-center text-xs">
-          LexExtern Global Jurisprudence · Cloudflare Workers + D1 Powered
+          LexExtern Global Jurisprudence · 域外法学学术情报聚合平台
         </footer>
       </div>
     );
@@ -433,7 +433,7 @@ function AppContent() {
         {isLoading && !apiError && (
           <div className="py-20 flex flex-col items-center justify-center gap-3 text-zinc-500">
             <Loader2 className="w-8 h-8 animate-spin text-[#0F52BA]" />
-            <p className="text-sm font-medium">正在自 Cloudflare D1 数据库加载全量学术图谱概览...</p>
+            <p className="text-sm font-medium">正在加载全量学术图谱概览...</p>
           </div>
         )}
 
@@ -566,14 +566,14 @@ function AppContent() {
           <div className="flex items-center gap-2">
             <Scale className="w-4 h-4 text-[#0F52BA]" />
             <span className="font-editorial-heading font-bold text-zinc-900 tracking-tight">
-              LexExtern · 域外法学信息聚合平台
+              LexExtern · 域外法学学术情报聚合平台
             </span>
             <span className="text-zinc-300">/</span>
-            <span>Cloudflare Workers + D1 Architecture</span>
+            <span>全球学术网络与智库架构</span>
           </div>
 
           <div className="flex items-center gap-4 text-zinc-500">
-            <span>D1 实时数据库绑定 (DB: lexextern-db)</span>
+            <span>权威期刊与学者图谱全量索引</span>
             <span>·</span>
             <span>严格遵守学术规范与引证标准</span>
           </div>

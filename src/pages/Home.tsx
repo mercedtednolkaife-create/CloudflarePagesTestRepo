@@ -487,10 +487,60 @@ export const Home: React.FC<HomeProps> = ({
     .slice(0, 5);
   }, [journals, articles]);
 
-  // Recent Scholar Highlights
+  // Recent Scholar Highlights (动态关联最新发表学术论文的学者画像)
   const recentAuthors = useMemo(() => {
-    return authors.slice(0, 4);
-  }, [authors]);
+    if (!authors || authors.length === 0) return [];
+    if (!articles || articles.length === 0) return authors.slice(0, 4);
+
+    // 1. 从最新文献流中提取著者名字
+    const recentAuthorNames: string[] = [];
+    const seenNames = new Set<string>();
+
+    for (const art of articles) {
+      if (art.authors && Array.isArray(art.authors)) {
+        for (const auth of art.authors) {
+          const rawName = typeof auth === 'string' ? auth : ((auth as any)?.name || (auth as any)?.nameCn || '');
+          const clean = rawName.trim();
+          if (clean && !seenNames.has(clean.toLowerCase())) {
+            seenNames.add(clean.toLowerCase());
+            recentAuthorNames.push(clean);
+          }
+        }
+      }
+    }
+
+    // 2. 将文献著者与 authors 知识图谱数据库进行高精度匹配
+    const matchedAuthors: Author[] = [];
+    const matchedIds = new Set<string>();
+
+    for (const name of recentAuthorNames) {
+      const lower = name.toLowerCase();
+      const found = authors.find((a) => {
+        const aLower = a.name.toLowerCase();
+        const aCnLower = a.nameCn ? a.nameCn.toLowerCase() : '';
+        return aLower === lower || aLower.includes(lower) || lower.includes(aLower) || (aCnLower && aCnLower === lower);
+      });
+
+      if (found && !matchedIds.has(found.id)) {
+        matchedIds.add(found.id);
+        matchedAuthors.push(found);
+        if (matchedAuthors.length >= 4) break;
+      }
+    }
+
+    // 3. 若当期论文著者未在画像库建档或不足 4 位，则由全库代表学者优雅补齐
+    if (matchedAuthors.length < 4) {
+      for (const a of authors) {
+        if (!matchedIds.has(a.id)) {
+          matchedIds.add(a.id);
+          matchedAuthors.push(a);
+          if (matchedAuthors.length >= 4) break;
+        }
+      }
+    }
+
+    return matchedAuthors.slice(0, 4);
+  }, [authors, articles]);
 
   return (
     <div className="space-y-6 font-sans">

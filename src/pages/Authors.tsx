@@ -3,6 +3,7 @@ import { Author, PaginationMeta } from '../types';
 import { fetchAuthors, toggleBookmark } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Pagination } from '../components/Pagination';
+import { CANONICAL_LEGAL_TAGS } from '../constants/academic';
 import {
   Users,
   Building2,
@@ -115,17 +116,11 @@ export const Authors: React.FC<AuthorsProps> = ({
     }
   };
 
-  // Predefined academic research areas
-  const allTags = useMemo(() => [
-    '全部',
-    '宪法与公法',
-    '私法与民商法',
-    '法哲学与法理学',
-    '国际法与全球治理',
-    '法律经济学',
-    '刑法与刑事司法',
-    '科技与人工智能法',
-  ], []);
+  // Predefined academic research areas (与全站法学学科体系严格对齐)
+  const allTags = useMemo(
+    () => CANONICAL_LEGAL_TAGS.map((t) => (t === '全部领域' ? '全部' : t)),
+    []
+  );
 
   // Displayed authors (driven by server-side query)
   const displayedAuthors = authors;

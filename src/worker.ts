@@ -257,6 +257,29 @@ function parseJsonField<T>(value: string | null | undefined, defaultValue: T): T
   }
 }
 
+// -------------------------------------------------------------
+// 学科标签智能检索扩展 (与 constants/academic.ts 保持一致)
+// -------------------------------------------------------------
+const TAG_EXPANSIONS_MAP: Record<string, string[]> = {
+  '宪法与公法': ['宪法学', '宪法', '美国宪法', '行政法', '行政法学', '司法审查', '公法', '选举法与民主理论'],
+  '民商法学': ['民商法学', '民事与侵权法', '侵权法', '合同法', '财产法', '公司法', '公司与证券法', '商法', '民权法', '家庭与婚姻法', '劳动法'],
+  '刑法与刑事司法': ['刑法学', '刑法', '刑事诉讼法', '刑事诉讼与司法', '刑事司法', '刑事诉讼法学'],
+  '诉讼法与司法制度': ['民事诉讼法', '刑事诉讼法', '诉讼法', '司法制度', '证据法', '证据法学', '司法审查'],
+  '法理学与法史': ['法理学', '综合法学', '法律史', '比较法学', '法律哲学', '法律职业伦理'],
+  '法律与经济学': ['法律与经济学', '反垄断法', '竞争法', '税法'],
+  '知识产权法': ['知识产权法', '专利法', '著作权法', '商标法'],
+  '数据与科技法': ['科技法学', '数据与科技法', '人工智能法', '数据与隐私法', '网络法'],
+  '国际法与全球治理': ['国际法', '国际经济法', '人权法', '英美法系'],
+};
+
+function getTagExpandedList(tag: string): string[] {
+  const trimmed = tag.trim();
+  if (TAG_EXPANSIONS_MAP[trimmed]) {
+    return TAG_EXPANSIONS_MAP[trimmed];
+  }
+  return [trimmed];
+}
+
 // Pagination Helper
 function parsePaginationParams(searchParams: URLSearchParams, defaultPageSize = 15) {
   const pageStr = searchParams.get('page');
@@ -517,8 +540,10 @@ export default {
         }
 
         if (tag && tag !== '全部领域' && tag !== '全部') {
-          whereClauses.push(`(p.tags LIKE ? OR p.tags_cn LIKE ?)`);
-          params.push(`%${tag}%`, `%${tag}%`);
+          const expanded = getTagExpandedList(tag);
+          const orClauses = expanded.map(() => `(p.tags LIKE ? OR p.tags_cn LIKE ?)`).join(' OR ');
+          whereClauses.push(`(${orClauses})`);
+          expanded.forEach((t) => params.push(`%${t}%`, `%${t}%`));
         }
 
         if (journalFilter && journalFilter !== 'all' && journalFilter !== '全部期刊') {
@@ -719,8 +744,10 @@ export default {
         }
 
         if (tag && tag !== '全部' && tag !== '全部领域') {
-          whereClauses.push(`a.tags_cn LIKE ?`);
-          params.push(`%${tag}%`);
+          const expanded = getTagExpandedList(tag);
+          const orClauses = expanded.map(() => `(a.tags_cn LIKE ? OR a.tags LIKE ?)`).join(' OR ');
+          whereClauses.push(`(${orClauses})`);
+          expanded.forEach((t) => params.push(`%${t}%`, `%${t}%`));
         }
 
         if (q) {
@@ -1095,25 +1122,52 @@ export default {
             ? bookmarkedJournalIds.has(row.id)
             : Boolean(row.is_pinned);
 
+          // 智能法域与国家推断 (兼容 D1 Schema 遗留空值)
+          let country = row.country || '';
+          let journalJurisdiction = row.jurisdiction || '';
+          if (!country || !journalJurisdiction || journalJurisdiction === 'All') {
+            const jId = (row.id || '').toLowerCase();
+            const jInst = (row.institution || '').toLowerCase();
+            if (jId.includes('oxford') || jId.includes('cambridge') || jInst.includes('oxford') || jInst.includes('cambridge') || jId.includes('lqr')) {
+              country = 'UK';
+              journalJurisdiction = 'UK';
+            } else if (jId.includes('ejil') || jInst.includes('european')) {
+              country = 'EU';
+              journalJurisdiction = 'EU';
+            } else {
+              // 现有 16 本旗舰法评均为美国核心法学院
+              country = 'US';
+              journalJurisdiction = 'US';
+            }
+          }
+
+          const parsedTags = parseJsonField<string[]>(
+            row.tags_cn || row.tags,
+            ['综合法学', '核心法评', row.tier || 'T14']
+          );
+
           return {
             id: row.id,
             name: row.name,
-            issn: row.issn,
-            tier: row.tier,
-            tags: parseJsonField<string[]>(row.tags, []),
+            issn: row.issn || row.issn_print || row.issn_electronic || '',
+            issnPrint: row.issn_print || null,
+            issnElectronic: row.issn_electronic || null,
+            tier: row.tier || 'T14',
+            tags: parsedTags,
+            tagsCn: parsedTags,
             nameCn: row.name_cn || row.name,
             nameOriginal: row.name,
             abbreviation: row.abbreviation || '',
             institution: row.institution || '',
-            country: row.country || '',
-            jurisdiction: row.jurisdiction || 'All',
-            category: row.category || '',
-            impactRank: row.impact_rank || '',
-            currentIssue: row.current_issue || '',
-            frequency: row.frequency || '',
+            country,
+            jurisdiction: journalJurisdiction,
+            category: row.category || '综合法学',
+            impactRank: row.impact_rank || (row.tier ? `${row.tier} 顶刊` : '旗舰核心'),
+            currentIssue: row.current_issue || '最新卷期',
+            frequency: row.frequency || 'Quarterly',
             isPinned,
-            coverColor: row.cover_color || 'from-blue-900 to-indigo-950',
-            description: row.description || '',
+            coverColor: row.cover_color || '#1e3a8a',
+            description: row.description || `${row.institution || ''} 主办之权威法学期刊。`,
             officialUrl: row.official_url || '',
             recentArticlesCount: row.recent_articles_count || 0,
           };
@@ -1126,7 +1180,10 @@ export default {
 
         // 领域标签筛选
         if (tag && tag !== '全部领域' && tag !== '全部') {
-          formatted = formatted.filter((j) => j.tags.includes(tag) || j.category.includes(tag));
+          const expanded = getTagExpandedList(tag);
+          formatted = formatted.filter((j) =>
+            expanded.some((t) => j.tags.includes(t) || j.category.includes(t))
+          );
         }
 
         // 关键词检索
@@ -1331,7 +1388,7 @@ export default {
 
         return jsonResponse({
           success: true,
-          message: '心愿单已成功写入 Cloudflare D1 数据库',
+          message: '心愿单已成功提交并进入评估队列',
           data: createdItem,
         }, 201);
       }
@@ -1378,7 +1435,7 @@ export default {
 
         return jsonResponse({
           success: true,
-          message: userVoted ? '点赞投票已记录并由 D1 触发器原子累加' : '已取消点赞并由 D1 触发器原子扣减',
+          message: userVoted ? '点赞投票已记录' : '已取消点赞',
           userVoted,
           votes: updatedWishlist?.votes ?? 0,
         });

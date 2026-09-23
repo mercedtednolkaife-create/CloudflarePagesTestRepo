@@ -31,6 +31,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { PaperDetailCardModal } from '../components/PaperDetailCardModal';
+import { CANONICAL_LEGAL_TAGS } from '../constants/academic';
 
 export interface PapersFeedProps {
   filterAuthor?: string | null;
@@ -50,23 +51,7 @@ export interface PapersFeedProps {
   onShowToast?: (msg: string, type?: 'success' | 'error') => void;
 }
 
-const POPULAR_TAGS = [
-  '全部领域',
-  '人工智能法',
-  '侵权责任',
-  '算法治理',
-  '知识产权法',
-  '反垄断法',
-  '生成式AI版权',
-  '数据治理',
-  '欧盟法',
-  '行政法',
-  '宪法',
-  '民法',
-  '比较法',
-  '智能合约',
-  '法律科技',
-];
+const POPULAR_TAGS = CANONICAL_LEGAL_TAGS;
 
 // Helper to extract volume and issue from paper
 function extractVolAndIssue(paper: Paper): { volume: string; issue: string } {
@@ -472,7 +457,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
               <BookOpen className="w-3.5 h-3.5" />
-              <span>Global Literature Pipeline · D1 Schema</span>
+              <span>Global Literature Pipeline · 全球法学前沿索引</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               域外法学文献库 (Literature Library)
@@ -760,7 +745,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
       {isLoading && (
         <div className="py-16 text-center text-zinc-400 flex flex-col items-center justify-center gap-3">
           <Loader2 className="w-7 h-7 animate-spin text-[#0F52BA]" />
-          <p className="text-xs font-medium">正在自 Cloudflare D1 拉取文献数据...</p>
+          <p className="text-xs font-medium">正在检索并加载最新法学文献数据...</p>
         </div>
       )}
 

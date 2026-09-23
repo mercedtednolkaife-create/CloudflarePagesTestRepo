@@ -55,7 +55,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           <span className="text-[#86868B]">— 查士丁尼《法学阶梯》</span>
         </div>
         <div className="flex items-center gap-3 text-[#86868B] font-mono text-[10px]">
-          <span>SSCI · SSRN Graph · Cloudflare D1</span>
+          <span>SSCI · SSRN Graph · LexExtern Academic Cloud</span>
           <span className="text-black/10">/</span>
           <span className="font-medium text-[#1D1D1F]">LEXEXTERN CLOUD</span>
         </div>
@@ -82,7 +82,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                   Lex<span className="text-[#0071E3]">Extern</span>
                 </span>
                 <span className="text-[10px] font-sans font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/[0.04] text-[#6E6E73] border border-black/[0.04]">
-                  D1 架构版
+                  全球学术情报版
                 </span>
               </div>
               <p className="text-[10px] font-sans tracking-tight text-[#86868B] hidden md:block">
