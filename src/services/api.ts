@@ -1,5 +1,5 @@
 /**
- * LexExtern API Client Service
+ * LawGlobal API Client Service
  * Interacts directly with Cloudflare Worker & D1 Database via /api
  * No Mock Data Fallbacks
  */
@@ -39,6 +39,22 @@ function getAuthHeaders(): Record<string, string> {
     } catch {}
   }
   return headers;
+}
+
+// 客户端内存缓存机制 (类似 React Query / SWR，提升标签切换流畅度与防抖频控，3分钟有效期)
+const API_CACHE = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 3 * 60 * 1000;
+
+export function clearApiCache(prefix?: string) {
+  if (!prefix) {
+    API_CACHE.clear();
+    return;
+  }
+  for (const key of API_CACHE.keys()) {
+    if (key.startsWith(prefix)) {
+      API_CACHE.delete(key);
+    }
+  }
 }
 
 /**
@@ -132,6 +148,7 @@ export async function fetchPapers(
     issue?: string;
     search?: string;
     bookmarked?: boolean;
+    bypassCache?: boolean;
   }
 ): Promise<{ papers: Paper[]; pagination: PaginationMeta }> {
   const params = new URLSearchParams();
@@ -156,6 +173,14 @@ export async function fetchPapers(
   params.set('page', String(page));
   params.set('pageSize', String(pageSize));
 
+  const cacheKey = `papers:${params.toString()}`;
+  if (!options?.bypassCache) {
+    const cached = API_CACHE.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
+
   const res = await fetch(`${API_BASE}/papers?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
@@ -176,7 +201,9 @@ export async function fetchPapers(
     hasPrev: false,
   };
 
-  return { papers, pagination };
+  const result = { papers, pagination };
+  API_CACHE.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 }
 
 /**
@@ -274,6 +301,7 @@ export async function toggleBookmark(
   clearApiCache('journals');
   clearApiCache('summary');
   clearApiCache('bookmarks');
+  clearApiCache('papers');
 
   return await res.json();
 }
@@ -307,22 +335,6 @@ export interface AggregationSummary {
   papersCount: number;
   journalsCount: number;
   lastUpdated: string;
-}
-
-// 客户端内存缓存机制 (类似 React Query / SWR，提升标签切换流畅度与防抖频控)
-const API_CACHE = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL_MS = 60 * 1000; // 60秒缓存有效时间
-
-export function clearApiCache(prefix?: string) {
-  if (!prefix) {
-    API_CACHE.clear();
-    return;
-  }
-  for (const key of API_CACHE.keys()) {
-    if (key.startsWith(prefix)) {
-      API_CACHE.delete(key);
-    }
-  }
 }
 
 /**

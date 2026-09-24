@@ -550,7 +550,7 @@ export const Home: React.FC<HomeProps> = ({
           <div className="space-y-1.5">
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-blue-50 border border-blue-200/60 text-[#0F52BA] text-[11px] font-semibold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>LexExtern Knowledge Engine · 全网法学图谱检索</span>
+              <span>LawGlobal Knowledge Engine · 全网法学图谱检索</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-zinc-900 tracking-tight">
               域外法学前沿检索与动态 (Jurisprudence Hub)

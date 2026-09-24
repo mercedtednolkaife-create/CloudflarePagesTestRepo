@@ -1,5 +1,5 @@
 /**
- * Cloudflare Worker Backend API for LexExtern
+ * Cloudflare Worker Backend API for LawGlobal
  * Bound with Cloudflare D1 Database (SQLite)
  */
 
@@ -745,9 +745,9 @@ export default {
 
         if (tag && tag !== '全部' && tag !== '全部领域') {
           const expanded = getTagExpandedList(tag);
-          const orClauses = expanded.map(() => `(a.tags_cn LIKE ? OR a.tags LIKE ?)`).join(' OR ');
+          const orClauses = expanded.map(() => `a.tags_cn LIKE ?`).join(' OR ');
           whereClauses.push(`(${orClauses})`);
-          expanded.forEach((t) => params.push(`%${t}%`, `%${t}%`));
+          expanded.forEach((t) => params.push(`%${t}%`));
         }
 
         if (q) {

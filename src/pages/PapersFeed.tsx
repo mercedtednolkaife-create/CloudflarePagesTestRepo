@@ -34,6 +34,7 @@ import { PaperDetailCardModal } from '../components/PaperDetailCardModal';
 import { CANONICAL_LEGAL_TAGS } from '../constants/academic';
 
 export interface PapersFeedProps {
+  journals?: Journal[];
   filterAuthor?: string | null;
   filterJournal?: string | null;
   filterVolume?: string | null;
@@ -73,6 +74,7 @@ function extractVolAndIssue(paper: Paper): { volume: string; issue: string } {
 }
 
 export const PapersFeed: React.FC<PapersFeedProps> = ({
+  journals,
   filterAuthor,
   filterJournal,
   filterVolume,
@@ -91,7 +93,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
 }) => {
   const { user } = useAuth();
   const [papers, setPapers] = useState<Paper[]>([]);
-  const [allJournalsList, setAllJournalsList] = useState<Journal[]>([]);
+  const [allJournalsList, setAllJournalsList] = useState<Journal[]>(journals || []);
   const [selectedTag, setSelectedTag] = useState<string>('全部领域');
   const [localSearchInput, setLocalSearchInput] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -144,18 +146,22 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
     }
   }, [filterIssue]);
 
-  // Load Journals for Dropdown Options
+  // Load Journals for Dropdown Options (prioritize passed-down journals prop)
   useEffect(() => {
-    let isMounted = true;
-    fetchJournals({ page: 1, pageSize: 100 })
-      .then((res) => {
-        if (isMounted) setAllJournalsList(res.journals);
-      })
-      .catch(() => {});
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    if (journals && journals.length > 0) {
+      setAllJournalsList(journals);
+    } else {
+      let isMounted = true;
+      fetchJournals({ page: 1, pageSize: 100 })
+        .then((res) => {
+          if (isMounted && res.journals.length > 0) setAllJournalsList(res.journals);
+        })
+        .catch(() => {});
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [journals]);
 
   // Load Papers from GET /api/papers (Server-Side Pagination & Filter Pushdown)
   const loadPapers = useCallback(async (
@@ -276,17 +282,21 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
   // Compute available journals list for dropdown
   const journalOptions = useMemo(() => {
     const journalMap = new Map<string, { name: string; nameCn?: string; abbr?: string }>();
+    const effectiveJournals = journals && journals.length > 0 ? journals : allJournalsList;
 
-    // From loaded journals endpoint
-    allJournalsList.forEach((j) => {
-      journalMap.set(j.nameOriginal, {
-        name: j.nameOriginal,
-        nameCn: j.nameCn,
-        abbr: j.abbreviation,
-      });
+    // From loaded journals endpoint or parent prop
+    effectiveJournals.forEach((j) => {
+      const originalName = j.nameOriginal || (j as any).name;
+      if (originalName) {
+        journalMap.set(originalName, {
+          name: originalName,
+          nameCn: j.nameCn,
+          abbr: j.abbreviation,
+        });
+      }
     });
 
-    // Also from current papers
+    // Also supplement with any journal from current papers
     papers.forEach((p) => {
       if (p.journalName && !journalMap.has(p.journalName)) {
         journalMap.set(p.journalName, {
@@ -298,7 +308,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
     });
 
     return Array.from(journalMap.values());
-  }, [allJournalsList, papers]);
+  }, [journals, allJournalsList, papers]);
 
   // Compute available Volumes for currently selected journal
   const availableVolumes = useMemo(() => {
@@ -357,6 +367,20 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
 
   // Reset all filters helper
   const handleResetAllFilters = () => {
+    const hasAnyFilterActive =
+      selectedTag !== '全部领域' ||
+      searchQuery !== '' ||
+      localSearchInput !== '' ||
+      selectedJournal !== '全部期刊' ||
+      selectedVolume !== '全部卷' ||
+      selectedIssue !== '全部期' ||
+      page !== 1 ||
+      Boolean(filterAuthor) ||
+      Boolean(filterJournal) ||
+      Boolean(filterVolume) ||
+      Boolean(filterIssue) ||
+      Boolean(filterPaperTitle);
+
     setSelectedTag('全部领域');
     setLocalSearchInput('');
     setSearchQuery('');
@@ -371,7 +395,12 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
     if (onClearPaperTitleFilter) onClearPaperTitleFilter();
 
     setPage(1);
-    loadPapers('全部领域', 1, pageSize, '全部期刊', '全部卷', '全部期', '', null, null);
+
+    // 仅在无任何筛选条件变动时（此时 React State 无变化，useEffect 不会触发）显式调用 loadPapers
+    // 避免正常重置状态时触发两次重复的网络与 D1 查询
+    if (!hasAnyFilterActive) {
+      loadPapers('全部领域', 1, pageSize, '全部期刊', '全部卷', '全部期', '', null, null);
+    }
   };
 
   // Toggle Bookmark Handler

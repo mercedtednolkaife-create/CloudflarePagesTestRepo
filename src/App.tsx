@@ -140,7 +140,7 @@ function AppContent() {
         tagsCn: e.tagsCn,
         description: e.description || `主办方：${e.hostName} · 截稿倒计时：${e.statusText}`,
         descriptionCn: e.descriptionCn,
-        submissionUrl: e.submissionUrl || (e.hostDomain ? `https://${e.hostDomain}` : 'https://lexextern.org'),
+        submissionUrl: e.submissionUrl || (e.hostDomain ? `https://${e.hostDomain}` : 'https://lawglobal.org'),
         officialUrl: e.officialUrl,
         feeInfo: e.feeInfo || undefined,
         daysRemaining: e.daysRemaining,
@@ -336,10 +336,10 @@ function AppContent() {
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-7 h-7 rounded-lg bg-[#09090B] text-white flex items-center justify-center font-serif font-black text-xs">
-                LE
+                LG
               </div>
               <span className="font-editorial-heading font-black text-base text-[#09090B]">
-                Lex<span className="text-[#0F52BA]">Extern</span>
+                Law<span className="text-[#0071E3]">Global</span>
               </span>
             </div>
             <div className="flex items-center gap-1 text-xs text-zinc-500 font-mono">
@@ -356,7 +356,7 @@ function AppContent() {
 
         {/* Footer */}
         <footer className="bg-white text-zinc-400 border-t border-zinc-200 py-4 text-center text-xs">
-          LexExtern Global Jurisprudence · 域外法学学术情报聚合平台
+          LawGlobal Global Jurisprudence · 全球法学学术情报聚合平台
         </footer>
       </div>
     );
@@ -466,6 +466,7 @@ function AppContent() {
             {/* VIEW 1: PAPERS FEED (文献流 - 支持期刊、卷Vol、期Issue级联下拉过滤、学者过滤、个人书签与标准分页) */}
             {activeTab === 'papers' && (
               <PapersFeed
+                journals={journals}
                 filterAuthor={filterAuthor}
                 filterJournal={filterJournal}
                 filterVolume={filterVolume}
@@ -566,7 +567,7 @@ function AppContent() {
           <div className="flex items-center gap-2">
             <Scale className="w-4 h-4 text-[#0F52BA]" />
             <span className="font-editorial-heading font-bold text-zinc-900 tracking-tight">
-              LexExtern · 域外法学学术情报聚合平台
+              LawGlobal · 全球法学学术情报聚合平台
             </span>
             <span className="text-zinc-300">/</span>
             <span>全球学术网络与智库架构</span>

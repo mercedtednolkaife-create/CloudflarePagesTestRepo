@@ -109,7 +109,7 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
 
   // Copy shareable summary helper
   const handleCopySummary = async (evt: AcademicEvent) => {
-    const summary = `【学术前沿通知】${evt.titleCn || evt.title}\n主办方：${evt.host}（${evt.location}）\n类别：${evt.type}\n截稿/截止：${evt.deadlineDisplay || evt.deadline}\n通道：${evt.submissionUrl}\n（来源：LexExtern 域外法学学术雷达）`;
+    const summary = `【学术前沿通知】${evt.titleCn || evt.title}\n主办方：${evt.host}（${evt.location}）\n类别：${evt.type}\n截稿/截止：${evt.deadlineDisplay || evt.deadline}\n通道：${evt.submissionUrl}\n（来源：LawGlobal 全球法学学术雷达）`;
     await copyToClipboard(summary);
     setCopiedId(evt.id);
     if (onShowToast) onShowToast('已复制活动快讯到剪贴板！', 'success');

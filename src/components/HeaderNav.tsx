@@ -55,9 +55,9 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           <span className="text-[#86868B]">— 查士丁尼《法学阶梯》</span>
         </div>
         <div className="flex items-center gap-3 text-[#86868B] font-mono text-[10px]">
-          <span>SSCI · SSRN Graph · LexExtern Academic Cloud</span>
+          <span>SSCI · SSRN Graph · LawGlobal Academic Cloud</span>
           <span className="text-black/10">/</span>
-          <span className="font-medium text-[#1D1D1F]">LEXEXTERN CLOUD</span>
+          <span className="font-medium text-[#1D1D1F]">LAWGLOBAL CLOUD</span>
         </div>
       </div>
 
@@ -74,12 +74,12 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             className="flex items-center gap-3 cursor-pointer group select-none shrink-0"
           >
             <div className="w-8 h-8 rounded-[9px] bg-[#1D1D1F] text-white flex items-center justify-center font-serif font-black text-sm tracking-tight group-hover:bg-[#0071E3] transition-colors shadow-xs">
-              LE
+              LG
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-editorial-heading font-black text-lg text-[#1D1D1F] tracking-tight">
-                  Lex<span className="text-[#0071E3]">Extern</span>
+                  Law<span className="text-[#0071E3]">Global</span>
                 </span>
                 <span className="text-[10px] font-sans font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/[0.04] text-[#6E6E73] border border-black/[0.04]">
                   全球学术情报版

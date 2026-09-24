@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS journals (
     issn_print TEXT,
     issn_electronic TEXT,
     institution TEXT,
+    country TEXT DEFAULT 'US',
+    jurisdiction TEXT DEFAULT 'US',
     tier TEXT,
     category TEXT,
     tags_cn TEXT,

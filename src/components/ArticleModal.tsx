@@ -135,45 +135,39 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
           </div>
 
           {/* Bilingual Abstract Breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Chinese Academic Abstract */}
-            <div className="p-4 rounded-lg bg-zinc-50 border border-zinc-200 space-y-2">
-              <div className="flex items-center gap-1.5 text-zinc-900 font-bold text-xs">
-                <Sparkles className="w-3.5 h-3.5 text-[#0F52BA]" />
-                <span>中文精要要旨 (Chinese Summary)</span>
+          {!article.abstractCn && !article.abstractOriginal ? (
+            <div className="p-5 rounded-xl bg-zinc-50 border border-zinc-200 text-center space-y-1.5">
+              <FileText className="w-5 h-5 mx-auto text-zinc-400" />
+              <p className="text-xs font-semibold text-zinc-800">该文献原文未附独立学术摘要</p>
+              <p className="text-[11px] text-zinc-500 max-w-md mx-auto leading-relaxed">
+                文献可能为特刊按语、书评、评述或判例评析。欢迎点击上方【查阅原文】直达阅读全文。
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Chinese Academic Abstract */}
+              <div className="p-4 rounded-lg bg-zinc-50 border border-zinc-200 space-y-2">
+                <div className="flex items-center gap-1.5 text-zinc-900 font-bold text-xs">
+                  <Sparkles className="w-3.5 h-3.5 text-[#0F52BA]" />
+                  <span>中文精要要旨 (Chinese Summary)</span>
+                </div>
+                <p className="text-zinc-700 leading-relaxed font-sans text-xs sm:text-sm">
+                  {article.abstractCn || '暂无中文精要，可查阅右侧英文原文摘要。'}
+                </p>
               </div>
-              <p className="text-zinc-700 leading-relaxed font-sans text-xs sm:text-sm">
-                {article.abstractCn}
-              </p>
-            </div>
 
-            {/* Original Abstract */}
-            <div className="p-4 rounded-lg bg-white border border-zinc-200 space-y-2">
-              <div className="flex items-center gap-1.5 text-zinc-900 font-bold text-xs">
-                <FileText className="w-3.5 h-3.5 text-zinc-400" />
-                <span>英文原文摘要 (Original Abstract)</span>
+              {/* Original Abstract */}
+              <div className="p-4 rounded-lg bg-white border border-zinc-200 space-y-2">
+                <div className="flex items-center gap-1.5 text-zinc-900 font-bold text-xs">
+                  <FileText className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>英文原文摘要 (Original Abstract)</span>
+                </div>
+                <p className="text-zinc-600 italic font-serif leading-relaxed text-xs sm:text-sm">
+                  {article.abstractOriginal || '该文献原文未单独提供英文摘要。'}
+                </p>
               </div>
-              <p className="text-zinc-600 italic font-serif leading-relaxed text-xs sm:text-sm">
-                {article.abstractOriginal}
-              </p>
             </div>
-          </div>
-
-          {/* Key Jurisprudential Insights */}
-          <div className="space-y-2.5">
-            <h4 className="font-editorial-heading font-bold text-base text-zinc-900 flex items-center gap-2">
-              <Scale className="w-4 h-4 text-[#0F52BA]" />
-              <span>核心学理贡献与评注建议</span>
-            </h4>
-            <div className="p-4 rounded-lg bg-zinc-50 border border-zinc-200 text-xs sm:text-sm text-zinc-700 space-y-2 leading-relaxed font-sans">
-              <p>
-                • <strong>理论突破：</strong>本研究对域外判例法的最新演进作出了实质性归纳，为比较法学者提供了兼具学理纵深与判例实证的分析框架。
-              </p>
-              <p>
-                • <strong>中国法借鉴：</strong>在民法典司法适用及前沿立法探索中，该文探讨的法理逻辑可作为立法论与解释论的重要比较法参照。
-              </p>
-            </div>
-          </div>
+          )}
 
           {/* Citation Generator Widget */}
           <div className="space-y-3 pt-3 border-t border-zinc-100">

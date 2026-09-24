@@ -18,6 +18,7 @@ import {
   Sparkles,
   Scale,
   Users,
+  FileText,
 } from 'lucide-react';
 
 interface PaperDetailCardModalProps {
@@ -286,47 +287,54 @@ export const PaperDetailCardModal: React.FC<PaperDetailCardModalProps> = ({
             </div>
 
             <div className="space-y-4">
-              {/* Chinese Abstract */}
-              {(activeTab === 'bilingual' || activeTab === 'zh') && paper.abstractCn && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F5F7] border border-black/[0.04] space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#0071E3]">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>中文精要要旨与核心研究发现</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-[#1D1D1F] leading-relaxed font-sans select-text">
-                    {paper.abstractCn}
+              {/* Fallback when neither Chinese nor English abstract is present in database */}
+              {!paper.abstract && !paper.abstractCn && (
+                <div className="p-5 sm:p-6 rounded-2xl bg-[#F5F5F7] border border-black/[0.04] text-center space-y-1.5">
+                  <FileText className="w-5 h-5 mx-auto text-[#86868B]/70" />
+                  <p className="text-xs font-semibold text-[#1D1D1F]">该文献原文未附独立学术摘要</p>
+                  <p className="text-[11px] text-[#86868B] max-w-md mx-auto leading-relaxed">
+                    文献可能为特刊按语、书评、评述或判例评析。欢迎点击下方【官方原文】直达查阅全文正文。
                   </p>
                 </div>
+              )}
+
+              {/* Chinese Abstract */}
+              {(activeTab === 'bilingual' || activeTab === 'zh') && (
+                paper.abstractCn ? (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#F5F5F7] border border-black/[0.04] space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#0071E3]">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>中文精要要旨与核心研究发现</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-[#1D1D1F] leading-relaxed font-sans select-text">
+                      {paper.abstractCn}
+                    </p>
+                  </div>
+                ) : activeTab === 'zh' && paper.abstract ? (
+                  <div className="p-4 rounded-2xl bg-[#F5F5F7] border border-black/[0.04] text-xs text-[#86868B] text-center">
+                    该文献暂无中文精要，可切换至【英文原文】标签查阅官方原版摘要。
+                  </div>
+                ) : null
               )}
 
               {/* English Abstract */}
-              {(activeTab === 'bilingual' || activeTab === 'en') && paper.abstract && (
-                <div className="p-4 sm:p-5 rounded-2xl bg-white border border-black/[0.06] space-y-2 shadow-xs">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#6E6E73]">
-                    <Layers className="w-3.5 h-3.5 text-[#86868B]" />
-                    <span>Original Academic Abstract</span>
+              {(activeTab === 'bilingual' || activeTab === 'en') && (
+                paper.abstract ? (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-white border border-black/[0.06] space-y-2 shadow-xs">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#6E6E73]">
+                      <Layers className="w-3.5 h-3.5 text-[#86868B]" />
+                      <span>Original Academic Abstract</span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-[#48484A] leading-relaxed font-serif select-text">
+                      {paper.abstract}
+                    </p>
                   </div>
-                  <p className="text-xs sm:text-sm text-[#48484A] leading-relaxed font-serif select-text">
-                    {paper.abstract}
-                  </p>
-                </div>
+                ) : activeTab === 'en' && paper.abstractCn ? (
+                  <div className="p-4 rounded-2xl bg-[#F5F5F7] border border-black/[0.04] text-xs text-[#86868B] text-center">
+                    该文献原文未单独收录英文摘要。
+                  </div>
+                ) : null
               )}
-            </div>
-          </div>
-
-          {/* Academic Value & Jurisprudential Insights */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#0071E3]/5 to-transparent border border-[#0071E3]/15 space-y-2.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#0071E3]">
-              <Scale className="w-4 h-4" />
-              <span>核心学理贡献与比较法价值</span>
-            </div>
-            <div className="text-xs sm:text-sm text-[#1D1D1F] space-y-1.5 leading-relaxed font-sans">
-              <p>
-                • <strong>理论突破：</strong>本研究紧密契合全球法学最新规范演进，通过扎实的学理推演与裁判经验实证，为前沿法律争议构建了兼具解释力与操作性的理论框架。
-              </p>
-              <p>
-                • <strong>制度借鉴：</strong>论述涵盖实体法价值权衡与程序机制衔接，为司法适用及相关前沿立法论提供了极具深度的域外参照样本。
-              </p>
             </div>
           </div>
 

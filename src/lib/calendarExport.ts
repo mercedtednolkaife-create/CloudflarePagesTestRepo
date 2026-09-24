@@ -68,18 +68,18 @@ export function generateEventIcs(event: AcademicEvent): string {
     event.submissionUrl ? `投稿地址: ${event.submissionUrl}` : '',
     event.officialUrl ? `官方主页: ${event.officialUrl}` : '',
     event.descriptionCn || event.description ? `简介: ${event.descriptionCn || event.description}` : '',
-    '数据来源: LexExtern 法学学术信息与论文智能服务平台',
+    '数据来源: LawGlobal 法学学术信息与论文智能服务平台',
   ].filter(Boolean);
 
   const description = escapeIcsText(descriptionParts.join('\n'));
   const safeLocation = escapeIcsText(location);
   const safeTitle = escapeIcsText(title);
-  const uid = `${event.id || 'evt'}-${startDate}@lexextern.org`;
+  const uid = `${event.id || 'evt'}-${startDate}@lawglobal.org`;
 
   const icsLines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//LexExtern//Academic Calendar Event//CN',
+    'PRODID:-//LawGlobal//Academic Calendar Event//CN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
@@ -127,7 +127,7 @@ export function downloadEventIcs(event: AcademicEvent): void {
     .trim();
 
   tempAnchor.href = downloadUrl;
-  tempAnchor.download = `LexExtern_DDL_${safeFilename || 'event'}.ics`;
+  tempAnchor.download = `LawGlobal_DDL_${safeFilename || 'event'}.ics`;
   document.body.appendChild(tempAnchor);
   tempAnchor.click();
 

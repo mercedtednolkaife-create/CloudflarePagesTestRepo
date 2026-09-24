@@ -144,13 +144,13 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
 }`;
     });
 
-    const fileContent = `% ==========================================================================\n% LexExtern Academic Export · Standard BibTeX Format\n% Generated for User: ${user?.username || 'scholar'}\n% Generated at: ${new Date().toISOString()}\n% Export Count: ${selectedPapers.length} articles\n% ==========================================================================\n\n${bibtexEntries.join('\n\n')}\n`;
+    const fileContent = `% ==========================================================================\n% LawGlobal Academic Export · Standard BibTeX Format\n% Generated for User: ${user?.username || 'scholar'}\n% Generated at: ${new Date().toISOString()}\n% Export Count: ${selectedPapers.length} articles\n% ==========================================================================\n\n${bibtexEntries.join('\n\n')}\n`;
 
     const blob = new Blob([fileContent], { type: 'application/x-bibtex;charset=utf-8' });
     const downloadUrl = URL.createObjectURL(blob);
     const tempAnchor = document.createElement('a');
     tempAnchor.href = downloadUrl;
-    tempAnchor.download = `lexextern_bibtex_${new Date().toISOString().split('T')[0]}.bib`;
+    tempAnchor.download = `lawglobal_bibtex_${new Date().toISOString().split('T')[0]}.bib`;
     document.body.appendChild(tempAnchor);
     tempAnchor.click();
 
