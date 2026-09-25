@@ -128,10 +128,10 @@ export const Authors: React.FC<AuthorsProps> = ({
   return (
     <div className="space-y-6 font-sans">
       {/* Header Banner (Apple-style frosted card) */}
-      <div className="bg-white rounded-2xl sm:rounded-[22px] p-6 sm:p-8 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      <div className="apple-card rounded-2xl sm:rounded-[24px] p-6 sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
               <Users className="w-3.5 h-3.5" />
               <span>Scholar Directory & Academic Graph</span>
             </div>
@@ -141,7 +141,7 @@ export const Authors: React.FC<AuthorsProps> = ({
           </div>
 
           <div className="text-right">
-            <div className="text-2xl font-bold text-[#1D1D1F] font-mono">{pagination.total || authors.length}</div>
+            <div className="text-2xl font-bold text-[#1D1D1F] font-mono tabular-nums">{pagination.total || authors.length}</div>
             <div className="text-[11px] text-[#86868B] font-medium">全库建档学者</div>
           </div>
         </div>
@@ -169,7 +169,7 @@ export const Authors: React.FC<AuthorsProps> = ({
       </div>
 
       {/* Search and Action Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-[22px] border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 apple-card p-4 sm:p-5 rounded-2xl sm:rounded-[22px]">
         <div className="relative w-full sm:w-96 flex items-center">
           <Search className="w-4 h-4 text-[#86868B] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -206,8 +206,8 @@ export const Authors: React.FC<AuthorsProps> = ({
 
       {/* Loading indicator */}
       {isLoading && (
-        <div className="py-16 text-center text-zinc-400 flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-7 h-7 animate-spin text-[#0F52BA]" />
+        <div className="py-16 text-center text-[#86868B] flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-7 h-7 animate-spin text-[#0071E3]" />
           <p className="text-xs font-medium">正在拉取学者与机构档案...</p>
         </div>
       )}
@@ -221,8 +221,8 @@ export const Authors: React.FC<AuthorsProps> = ({
                 {displayedAuthors.map((author) => (
                   <div
                     key={author.id}
-                    className={`bg-white rounded-[22px] border p-6 transition-all duration-200 hover:border-black/[0.12] hover:shadow-[0_8px_24px_rgba(0,0,0,0.04)] relative flex flex-col justify-between ${
-                      author.isBookmarked ? 'border-amber-300 bg-amber-50/15' : 'border-black/[0.06] shadow-[0_2px_10px_rgba(0,0,0,0.02)]'
+                    className={`apple-card apple-card-hover rounded-2xl sm:rounded-[22px] p-6 relative flex flex-col justify-between ${
+                      author.isBookmarked ? 'ring-1 ring-amber-400/50 bg-amber-500/[0.03]' : ''
                     }`}
                   >
                     {/* Bookmarked Badge */}
@@ -237,7 +237,7 @@ export const Authors: React.FC<AuthorsProps> = ({
                       {/* Author Header */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3.5">
-                          <div className="w-12 h-12 rounded-2xl bg-zinc-900 text-white flex items-center justify-center font-editorial-heading font-bold text-lg shrink-0 shadow-2xs">
+                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#1D1D1F] to-[#3A3A3C] text-white flex items-center justify-center font-editorial-heading font-bold text-lg shrink-0 shadow-xs ring-1 ring-black/5">
                             {author.name
                               .split(' ')
                               .filter((w) => !w.startsWith('Dr.') && !w.startsWith('Prof.'))
@@ -249,17 +249,17 @@ export const Authors: React.FC<AuthorsProps> = ({
                             <h2 className="text-base sm:text-lg font-bold text-[#1D1D1F] font-editorial-heading flex flex-wrap items-baseline gap-2">
                               <span>{author.name}</span>
                               {author.nameCn && (
-                                <span className="text-xs sm:text-sm text-[#6E6E73] font-medium font-sans bg-black/[0.04] px-2 py-0.5 rounded-md">
+                                <span className="text-xs sm:text-sm text-[#6E6E73] font-medium font-sans bg-black/[0.04] px-2 py-0.5 rounded-full">
                                   {author.nameCn}
                                 </span>
                               )}
                             </h2>
                             {author.institution && (
-                              <div className="flex items-center gap-1.5 text-xs text-zinc-600 mt-0.5">
-                                <Building2 className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                                <span className="font-medium text-zinc-800">{author.institution.name}</span>
+                              <div className="flex items-center gap-1.5 text-xs text-[#6E6E73] mt-0.5">
+                                <Building2 className="w-3.5 h-3.5 text-[#86868B] shrink-0" />
+                                <span className="font-medium text-[#1D1D1F]">{author.institution.name}</span>
                                 {author.institution.country && (
-                                  <span className="text-[10px] text-zinc-400">· {author.institution.country}</span>
+                                  <span className="text-[10px] text-[#86868B]">· {author.institution.country}</span>
                                 )}
                               </div>
                             )}
@@ -269,10 +269,10 @@ export const Authors: React.FC<AuthorsProps> = ({
                         {/* Star Button */}
                         <button
                           onClick={() => handleToggleBookmark(author)}
-                          className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          className={`p-2.5 rounded-full border transition-all cursor-pointer ${
                             author.isBookmarked
-                              ? 'bg-amber-500 text-white border-amber-600 shadow-2xs hover:bg-amber-600'
-                              : 'bg-white text-zinc-400 border-zinc-200 hover:text-amber-500 hover:border-amber-300'
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-xs hover:bg-amber-600'
+                              : 'bg-white text-[#86868B] border-black/[0.08] hover:text-amber-500 hover:border-amber-300'
                           }`}
                           title={author.isBookmarked ? '取消关注' : '关注标星学者'}
                         >
@@ -287,11 +287,11 @@ export const Authors: React.FC<AuthorsProps> = ({
                             href={`https://${author.institution.domain}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 hover:bg-zinc-200 text-[11px]"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F5F5F7] text-[#1D1D1F] hover:bg-black/[0.06] text-[11px] font-medium border border-black/[0.04] transition-colors"
                           >
-                            <Globe className="w-3 h-3 text-zinc-400" />
+                            <Globe className="w-3 h-3 text-[#86868B]" />
                             <span>{author.institution.domain}</span>
-                            <ExternalLink className="w-2.5 h-2.5 text-zinc-400" />
+                            <ExternalLink className="w-2.5 h-2.5 text-[#86868B]" />
                           </a>
                         )}
 
@@ -300,10 +300,10 @@ export const Authors: React.FC<AuthorsProps> = ({
                             href={author.profileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 hover:bg-zinc-200 text-[11px]"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#F5F5F7] text-[#1D1D1F] hover:bg-black/[0.06] text-[11px] font-medium border border-black/[0.04] transition-colors"
                           >
                             <span>教职主页</span>
-                            <ExternalLink className="w-2.5 h-2.5 text-zinc-400" />
+                            <ExternalLink className="w-2.5 h-2.5 text-[#86868B]" />
                           </a>
                         )}
 
@@ -312,12 +312,12 @@ export const Authors: React.FC<AuthorsProps> = ({
                             href={`https://orcid.org/${author.orcid}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-[11px] font-mono font-medium"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60 hover:bg-emerald-100 text-[11px] font-mono font-medium transition-colors"
                             title={`ORCID: ${author.orcid}`}
                           >
                             <Award className="w-3 h-3 text-emerald-600" />
                             <span>ORCID: {author.orcid}</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
+                            <ExternalLink className="w-2.5 h-2.5 opacity-70" />
                           </a>
                         )}
 
@@ -326,22 +326,22 @@ export const Authors: React.FC<AuthorsProps> = ({
                             href={author.ssrnUrl || `https://papers.ssrn.com/sol3/cf_dev/AbsByAuth.cfm?per_id=${author.ssrnId.replace('ssrn-', '')}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-[#0F52BA] border border-blue-100 hover:bg-blue-100 text-[11px] font-medium"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0071E3]/10 text-[#0071E3] border border-[#0071E3]/20 hover:bg-[#0071E3]/15 text-[11px] font-medium transition-colors"
                           >
                             <Award className="w-3 h-3" />
                             <span>SSRN: {author.ssrnId}</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
+                            <ExternalLink className="w-2.5 h-2.5 opacity-70" />
                           </a>
                         )}
                       </div>
 
                       {/* Research Tags */}
                       {(author.tagsCn || author.tags) && (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                           {(author.tagsCn && author.tagsCn.length > 0 ? author.tagsCn : author.tags).map((tag) => (
                             <span
                               key={tag}
-                              className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 text-[11px] font-medium"
+                              className="px-2.5 py-0.5 rounded-full bg-[#F5F5F7] text-[#6E6E73] text-[11px] font-medium border border-black/[0.04]"
                             >
                               #{tag}
                             </span>
@@ -351,20 +351,20 @@ export const Authors: React.FC<AuthorsProps> = ({
 
                       {/* Representative Papers (Max 5) & View Detailed Papers Button */}
                       {author.papers && author.papers.length > 0 && (
-                        <div className="bg-zinc-50 rounded-xl p-3.5 border border-zinc-100 space-y-2.5">
+                        <div className="bg-[#F5F5F7]/80 rounded-2xl p-4 border border-black/[0.04] space-y-2.5">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-[11px] font-semibold text-zinc-600 flex items-center gap-1.5">
-                              <BookOpen className="w-3.5 h-3.5 text-[#0F52BA]" />
+                            <div className="text-[11px] font-semibold text-[#6E6E73] flex items-center gap-1.5">
+                              <BookOpen className="w-3.5 h-3.5 text-[#0071E3]" />
                               <span>代表论文 ({Math.min(author.papers.length, 5)}{author.papers.length > 5 ? ` / ${author.papers.length}` : ''}):</span>
                             </div>
 
                             {onViewAuthorPapers && (
                               <button
                                 onClick={() => onViewAuthorPapers(author.name)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white hover:bg-zinc-100 text-[#0F52BA] hover:text-[#093d94] border border-blue-200/80 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs group"
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white hover:bg-[#F5F5F7] text-[#0071E3] border border-[#0071E3]/20 text-[11px] font-semibold transition-all cursor-pointer shadow-xs group"
                                 title={`在文献库中检索并查看学者【${author.name}】的全部论著`}
                               >
-                                <FileText className="w-3 h-3 text-[#0F52BA]" />
+                                <FileText className="w-3 h-3 text-[#0071E3]" />
                                 <span>查看详细论文</span>
                                 <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                               </button>
@@ -373,13 +373,13 @@ export const Authors: React.FC<AuthorsProps> = ({
 
                           <div className="space-y-1.5">
                             {author.papers.slice(0, 5).map((p) => (
-                              <div key={p.id} className="text-xs text-zinc-800 flex items-start gap-1.5 group/p">
-                                <span className="text-[#0F52BA] font-bold select-none">•</span>
+                              <div key={p.id} className="text-xs text-[#1D1D1F] flex items-start gap-2 group/p">
+                                <span className="text-[#0071E3] font-bold select-none">•</span>
                                 <a
                                   href={p.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="hover:text-[#0F52BA] hover:underline font-medium line-clamp-1 leading-snug"
+                                  className="hover:text-[#0071E3] hover:underline font-medium line-clamp-1 leading-snug"
                                 >
                                   {p.title}
                                 </a>
@@ -408,10 +408,10 @@ export const Authors: React.FC<AuthorsProps> = ({
               />
             </>
           ) : (
-            <div className="py-16 text-center bg-white rounded-2xl border border-zinc-200 space-y-3">
-              <Users className="w-10 h-10 text-zinc-300 mx-auto" />
-              <h3 className="text-sm font-bold text-zinc-800">未找到相关学者画像</h3>
-              <p className="text-xs text-zinc-500">尝试更换搜索关键字或清除筛选。</p>
+            <div className="py-16 text-center apple-card rounded-2xl sm:rounded-[22px] space-y-3">
+              <Users className="w-10 h-10 text-[#86868B]/40 mx-auto" />
+              <h3 className="text-sm font-bold text-[#1D1D1F]">未找到相关学者画像</h3>
+              <p className="text-xs text-[#86868B]">尝试更换搜索关键字或清除筛选。</p>
             </div>
           )}
         </div>

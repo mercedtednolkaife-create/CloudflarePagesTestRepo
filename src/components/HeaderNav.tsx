@@ -44,20 +44,26 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
 
   return (
-    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-black/[0.06] text-[#1D1D1F] select-none transition-all">
+    <header className="sticky top-0 z-40 apple-glass border-b border-black/[0.06] text-[#1D1D1F] select-none transition-all shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       {/* Top Academic Motto Bar */}
-      <div className="bg-[#F5F5F7]/90 px-4 sm:px-8 py-1.5 border-b border-black/[0.04] text-[11px] font-sans tracking-tight text-[#6E6E73] flex justify-between items-center hidden sm:flex">
+      <div className="bg-[#F5F5F7]/80 backdrop-blur-md px-4 sm:px-8 py-1.5 border-b border-black/[0.04] text-[11px] font-sans tracking-tight text-[#6E6E73] flex justify-between items-center hidden sm:flex">
         <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#0071E3]"></span>
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0071E3] opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#0071E3]"></span>
+          </span>
           <span className="font-serif italic text-[#1D1D1F]">
             "Iustitia est constans et perpetua voluntas ius suum cuique tribuendi"
           </span>
           <span className="text-[#86868B]">— 查士丁尼《法学阶梯》</span>
         </div>
         <div className="flex items-center gap-3 text-[#86868B] font-mono text-[10px]">
-          <span>SSCI · SSRN Graph · LawGlobal Academic Cloud</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span className="text-[#1D1D1F] font-medium">SSCI · SSRN Graph · LawGlobal Academic Cloud</span>
+          </span>
           <span className="text-black/10">/</span>
-          <span className="font-medium text-[#1D1D1F]">LAWGLOBAL CLOUD</span>
+          <span className="font-semibold text-[#0071E3]">LIVE D1 EDGE</span>
         </div>
       </div>
 
@@ -92,72 +98,72 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           </div>
 
           {/* Navigation Tabs (Apple Segmented Style) */}
-          <nav className="flex items-center gap-1 font-sans text-xs font-medium overflow-x-auto py-1 bg-black/[0.03] p-1 rounded-full border border-black/[0.04]">
+          <nav className="flex items-center gap-1 font-sans text-xs font-medium overflow-x-auto py-1 bg-black/[0.04] p-1 rounded-full border border-black/[0.06] backdrop-blur-md">
             <button
               id="nav-tab-home"
               onClick={() => setActiveTab('home')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer whitespace-nowrap ${
                 activeTab === 'home'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] font-semibold scale-[1.02]'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/60'
               }`}
             >
-              <Compass className="w-3.5 h-3.5" />
+              <Compass className={`w-3.5 h-3.5 ${activeTab === 'home' ? 'text-[#0071E3]' : ''}`} />
               <span>首页</span>
             </button>
 
             <button
               id="nav-tab-papers"
               onClick={() => setActiveTab('papers')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer whitespace-nowrap ${
                 activeTab === 'papers'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] font-semibold scale-[1.02]'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/60'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5" />
+              <BookOpen className={`w-3.5 h-3.5 ${activeTab === 'papers' ? 'text-[#0071E3]' : ''}`} />
               <span>文献库</span>
             </button>
 
             <button
               id="nav-tab-authors"
               onClick={() => setActiveTab('authors')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer whitespace-nowrap ${
                 activeTab === 'authors'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] font-semibold scale-[1.02]'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/60'
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
+              <Users className={`w-3.5 h-3.5 ${activeTab === 'authors' ? 'text-[#0071E3]' : ''}`} />
               <span>学者画像库</span>
             </button>
 
             <button
               id="nav-tab-journals"
               onClick={() => setActiveTab('journals')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer whitespace-nowrap ${
                 activeTab === 'journals'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] font-semibold scale-[1.02]'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/60'
               }`}
             >
-              <Library className="w-3.5 h-3.5" />
+              <Library className={`w-3.5 h-3.5 ${activeTab === 'journals' ? 'text-[#0071E3]' : ''}`} />
               <span>核心期刊架</span>
             </button>
 
             <button
               id="nav-tab-events"
               onClick={() => setActiveTab('events')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer whitespace-nowrap ${
                 activeTab === 'events'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] font-semibold scale-[1.02]'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/60'
               }`}
             >
-              <CalendarClock className="w-3.5 h-3.5" />
+              <CalendarClock className={`w-3.5 h-3.5 ${activeTab === 'events' ? 'text-[#0071E3]' : ''}`} />
               <span>活动与DDL</span>
               {urgentEventCount > 0 && (
-                <span className="px-1.5 py-0.2 bg-[#FF3B30] text-white text-[9px] font-bold rounded-full">
+                <span className="px-1.5 py-0.2 bg-[#FF3B30] text-white text-[9px] font-bold rounded-full shadow-2xs">
                   {urgentEventCount} 临期
                 </span>
               )}
@@ -166,17 +172,17 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <button
               id="nav-tab-bookmarks"
               onClick={() => setActiveTab('bookmarks')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer whitespace-nowrap ${
                 activeTab === 'bookmarks' || activeTab === 'saved'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] font-semibold scale-[1.02]'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/60'
               }`}
               title="个人学术书签与 BibTeX 导出"
             >
-              <Bookmark className="w-3.5 h-3.5" />
+              <Bookmark className={`w-3.5 h-3.5 ${activeTab === 'bookmarks' || activeTab === 'saved' ? 'text-[#0071E3]' : ''}`} />
               <span>个人收藏夹</span>
               {savedCount > 0 && (
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#0071E3] text-white font-mono font-medium">
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#0071E3] text-white font-mono font-medium shadow-2xs">
                   {savedCount}
                 </span>
               )}
@@ -185,13 +191,13 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <button
               id="nav-tab-wishlist"
               onClick={() => setActiveTab('wishlist')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer whitespace-nowrap ${
                 activeTab === 'wishlist'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] font-semibold scale-[1.02]'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/60'
               }`}
             >
-              <HeartHandshake className="w-3.5 h-3.5" />
+              <HeartHandshake className={`w-3.5 h-3.5 ${activeTab === 'wishlist' ? 'text-[#0071E3]' : ''}`} />
               <span className="hidden sm:inline">心愿单</span>
               {wishlistCount > 0 && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 text-[#1D1D1F] font-mono">

@@ -246,10 +246,10 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
   return (
     <div className="space-y-6 font-sans">
       {/* Header Banner (Apple-style frosted card) */}
-      <div className="bg-white rounded-2xl sm:rounded-[22px] p-6 sm:p-8 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      <div className="apple-card p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="max-w-3xl space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold tracking-wide">
               <Layers className="w-3.5 h-3.5" />
               <span>Curated Core Law Reviews · 国际核心法评总览</span>
             </div>
@@ -263,14 +263,14 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
 
           {/* Quick Stats & Refresh Button */}
           <div className="flex items-center sm:flex-col items-end gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F5F5F7] border border-black/[0.04] text-xs font-semibold text-[#1D1D1F]">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/[0.04] border border-black/[0.04] text-xs font-semibold text-[#1D1D1F]">
               <BookmarkCheck className="w-3.5 h-3.5 text-[#0071E3]" />
               <span>已置顶 <strong className="text-[#0071E3] font-bold font-mono">{pinnedCount}</strong> 本</span>
             </div>
             <button
               onClick={handleManualRefresh}
               disabled={isRefreshing || isLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#F5F5F7] hover:bg-[#E8E8ED] text-[#1D1D1F] text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/[0.04] hover:bg-black/[0.08] text-[#1D1D1F] text-xs font-medium transition-all duration-200 cursor-pointer disabled:opacity-50 active:scale-95"
               title="增量同步最新期刊元数据"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[#0071E3]' : 'text-[#86868B]'}`} />
@@ -285,7 +285,7 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
         </div>
 
         {/* Search & Jurisdiction Filter Bar */}
-        <div className="mt-6 pt-6 border-t border-black/[0.04] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <div className="pt-6 border-t border-black/[0.05] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           <div className="relative flex-1 max-w-md flex items-center">
             <Search className="w-4 h-4 text-[#86868B] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -296,22 +296,21 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
               }}
               onChange={(e) => setLocalSearch(e.target.value)}
               placeholder="搜索期刊中文名、英文名、缩写或主办学院..."
-              className="w-full pl-9 pr-20 py-2 bg-[#F5F5F7] border border-black/[0.04] rounded-xl text-xs text-[#1D1D1F] placeholder:text-[#86868B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition-all"
+              className="w-full pl-9 pr-20 py-2.5 bg-white/90 border border-black/[0.08] rounded-full text-xs text-[#1D1D1F] placeholder:text-[#86868B] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0071E3]/15 focus:border-[#0071E3] transition-all"
             />
             <button
               onClick={handleTriggerSearch}
-              className="absolute right-1.5 px-2.5 py-1 bg-[#1D1D1F] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+              className="absolute right-1.5 px-3 py-1 bg-[#1D1D1F] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-full flex items-center gap-1 transition-all cursor-pointer shadow-xs"
             >
               <span>搜索</span>
               <CornerDownLeft className="w-3 h-3 opacity-70" />
             </button>
           </div>
 
-          {/* Jurisdiction Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto bg-[#F5F5F7] p-1 rounded-xl border border-black/[0.04] shrink-0">
+          {/* Jurisdiction Pills (Apple Segmented Style) */}
+          <div className="flex items-center gap-1 overflow-x-auto bg-black/[0.04] p-1 rounded-full border border-black/[0.05] shrink-0">
             {JURISDICTIONS.map((j) => {
               const isSelected = selectedJurisdiction === j.id;
-              // 标注各法域当前收录状态
               const badgeText = j.id === 'All' ? '16' : j.id === 'US' ? '16' : '筹备中';
               return (
                 <button
@@ -320,10 +319,10 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
                     setSelectedJurisdiction(j.id as JurisdictionType);
                     setPage(1);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
                     isSelected
-                      ? 'bg-white text-[#1D1D1F] shadow-xs font-bold'
-                      : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                      ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold scale-[1.02]'
+                      : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/50'
                   }`}
                 >
                   <span>{j.label}</span>
@@ -389,21 +388,24 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
             return (
               <div
                 key={journal.id}
-                className={`bg-white rounded-[20px] border transition-all duration-200 flex flex-col justify-between overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 ${
-                  journal.isPinned ? 'border-[#0071E3] ring-2 ring-[#0071E3]/15' : 'border-black/[0.06] hover:border-black/[0.12]'
+                className={`apple-card overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] flex flex-col justify-between hover:shadow-[0_16px_36px_rgba(0,0,0,0.08)] hover:-translate-y-1 ${
+                  journal.isPinned ? 'border-[#0071E3]/50 ring-2 ring-[#0071E3]/20 shadow-[0_4px_20px_rgba(0,113,227,0.08)]' : 'hover:border-black/[0.12]'
                 }`}
               >
                 <div>
-                  {/* Card Banner Header (Authentic Leather & Cloth Bookbinding) */}
+                  {/* Card Banner Header (Authentic Leather & Cloth Bookbinding with Specular Sheen) */}
                   <div
                     style={{ background: theme.bg }}
-                    className="p-5 text-white flex items-start justify-between relative overflow-hidden select-none"
+                    className="p-5 text-white flex items-start justify-between relative overflow-hidden select-none group"
                   >
                     {/* Visual Spine Accent on left */}
                     <div
                       style={{ background: theme.spine }}
-                      className="absolute top-0 left-0 bottom-0 w-2.5 opacity-60 shadow-inner"
+                      className="absolute top-0 left-0 bottom-0 w-2.5 opacity-70 shadow-inner"
                     />
+
+                    {/* Specular Diagonal Light Sheen */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none" />
 
                     {journal.isPinned && (
                       <div className="absolute top-2.5 right-12 flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-amber-950 text-[10px] font-black uppercase tracking-wider shadow-xs">
@@ -414,7 +416,7 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
 
                     <div className="space-y-1.5 pr-6 pl-2 z-10">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-mono text-xs font-bold tracking-wider px-2 py-0.5 bg-black/25 backdrop-blur-md rounded-md border border-white/10 shadow-xs">
+                        <span className="font-mono text-xs font-bold tracking-wider px-2 py-0.5 bg-black/30 backdrop-blur-md rounded-md border border-white/15 shadow-xs">
                           {journal.abbreviation || journal.nameOriginal.slice(0, 15)}
                         </span>
                         {journal.tier && (
@@ -434,7 +436,7 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
                     {/* Pin Action Button */}
                     <button
                       onClick={() => handleTogglePin(journal.id)}
-                      className={`p-2 rounded-xl transition-all cursor-pointer z-10 ${
+                      className={`p-2 rounded-xl transition-all duration-200 active:scale-90 cursor-pointer z-10 ${
                         journal.isPinned
                           ? 'bg-white text-[#0071E3] shadow-xs hover:bg-[#F5F5F7]'
                           : 'bg-white/15 hover:bg-white/25 text-white backdrop-blur-xs'

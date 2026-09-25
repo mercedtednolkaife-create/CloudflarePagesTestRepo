@@ -330,34 +330,43 @@ function AppContent() {
 
   if (!isAuthenticated || !user) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex flex-col justify-between font-sans text-[#09090B]">
-        {/* Minimal Auth Header */}
-        <header className="bg-white border-b border-zinc-200 py-3.5 px-6">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-[#09090B] text-white flex items-center justify-center font-serif font-black text-xs">
-                LG
+      <div className="min-h-screen bg-[#F5F5F7] flex flex-col justify-between font-sans text-[#1D1D1F] relative selection:bg-[#0071E3]/20 selection:text-[#0071E3]">
+        {/* Apple Hardware-Accelerated Ambient Backdrop */}
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+          <div className="absolute top-[10%] left-[20%] w-[540px] h-[540px] rounded-full bg-gradient-to-br from-[#0071E3]/10 via-[#6366f1]/8 to-transparent blur-[120px] animate-apple-ambient-1" />
+          <div className="absolute top-[40%] right-[15%] w-[480px] h-[480px] rounded-full bg-gradient-to-bl from-[#38bdf8]/10 via-[#a855f7]/6 to-transparent blur-[130px] animate-apple-ambient-2" />
+          <div className="absolute inset-0 apple-dot-grid opacity-60" />
+        </div>
+
+        <div className="relative z-10 flex flex-col justify-between min-h-screen">
+          {/* Minimal Apple Glass Auth Header */}
+          <header className="apple-glass py-3.5 px-6 border-b border-black/[0.06]">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-[8px] bg-[#1D1D1F] text-white flex items-center justify-center font-serif font-black text-xs shadow-xs">
+                  LG
+                </div>
+                <span className="font-editorial-heading font-black text-base text-[#1D1D1F]">
+                  Law<span className="text-[#0071E3]">Global</span>
+                </span>
               </div>
-              <span className="font-editorial-heading font-black text-base text-[#09090B]">
-                Law<span className="text-[#0071E3]">Global</span>
-              </span>
+              <div className="flex items-center gap-1.5 text-xs text-[#6E6E73] font-mono">
+                <Lock className="w-3.5 h-3.5 text-[#0071E3]" />
+                <span>学术访问网关 · 请先登录</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1 text-xs text-zinc-500 font-mono">
-              <Lock className="w-3.5 h-3.5 text-zinc-400" />
-              <span>学术访问网关 · 请先登录</span>
-            </div>
-          </div>
-        </header>
+          </header>
 
-        {/* Login Form Portal */}
-        <main className="flex-1 flex items-center justify-center p-4">
-          <Login onSuccess={() => loadInitialData(true)} />
-        </main>
+          {/* Login Form Portal */}
+          <main className="flex-1 flex items-center justify-center p-4">
+            <Login onSuccess={() => loadInitialData(true)} />
+          </main>
 
-        {/* Footer */}
-        <footer className="bg-white text-zinc-400 border-t border-zinc-200 py-4 text-center text-xs">
-          LawGlobal Global Jurisprudence · 全球法学学术情报聚合平台
-        </footer>
+          {/* Footer */}
+          <footer className="apple-glass text-[#86868B] border-t border-black/[0.06] py-4 text-center text-xs">
+            LawGlobal Global Jurisprudence · 全球法学学术情报聚合平台
+          </footer>
+        </div>
       </div>
     );
   }
@@ -366,9 +375,25 @@ function AppContent() {
   // 已登录状态：展示全功能学术工作台
   // -------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex flex-col font-sans text-[#09090B]">
-      {/* Toast Notification Popup */}
-      {toastMessage && (
+    <div className="min-h-screen bg-[#F5F5F7] flex flex-col font-sans text-[#1D1D1F] relative selection:bg-[#0071E3]/20 selection:text-[#0071E3]">
+      {/* Apple Hardware-Accelerated Ambient Backdrop (Zero CPU, Pure CSS GPU Composite Layer) */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden" aria-hidden="true">
+        {/* Ambient Orb 1: Subtle Apple Tech Blue at top-left */}
+        <div className="absolute -top-[12%] -left-[10%] w-[580px] h-[580px] rounded-full bg-gradient-to-br from-[#0071E3]/12 via-[#38bdf8]/8 to-transparent blur-[120px] animate-apple-ambient-1" />
+        
+        {/* Ambient Orb 2: Deep Indigo / Violet at top-right */}
+        <div className="absolute -top-[8%] -right-[12%] w-[620px] h-[620px] rounded-full bg-gradient-to-bl from-[#6366f1]/10 via-[#a855f7]/6 to-transparent blur-[130px] animate-apple-ambient-2" />
+        
+        {/* Ambient Orb 3: Subtle Warm Amber / Rose in lower-center */}
+        <div className="absolute top-[48%] left-[25%] w-[520px] h-[520px] rounded-full bg-gradient-to-tr from-[#f59e0b]/5 via-[#ec4899]/4 to-transparent blur-[140px] animate-apple-ambient-3" />
+        
+        {/* Precision Micro-Dot Grid Layer */}
+        <div className="absolute inset-0 apple-dot-grid opacity-60" />
+      </div>
+
+      <div className="relative z-10 flex flex-col flex-1">
+        {/* Toast Notification Popup */}
+        {toastMessage && (
         <div
           className={`fixed top-4 right-4 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-200 ${
             toastMessage.type === 'success'
@@ -561,25 +586,26 @@ function AppContent() {
         )}
       </main>
 
-      {/* Global Academic Footer */}
-      <footer className="bg-white text-zinc-500 border-t border-zinc-200 mt-16 py-7 text-xs font-sans">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Scale className="w-4 h-4 text-[#0F52BA]" />
-            <span className="font-editorial-heading font-bold text-zinc-900 tracking-tight">
-              LawGlobal · 全球法学学术情报聚合平台
-            </span>
-            <span className="text-zinc-300">/</span>
-            <span>全球学术网络与智库架构</span>
-          </div>
+        {/* Global Academic Footer (Apple Style Frosted Footer) */}
+        <footer className="apple-glass mt-16 py-8 text-xs font-sans text-[#6E6E73] border-t border-black/[0.06]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Scale className="w-4 h-4 text-[#0071E3]" />
+              <span className="font-editorial-heading font-bold text-[#1D1D1F] tracking-tight">
+                LawGlobal · 全球法学学术情报聚合平台
+              </span>
+              <span className="text-black/15">/</span>
+              <span>全球学术网络与智库架构</span>
+            </div>
 
-          <div className="flex items-center gap-4 text-zinc-500">
-            <span>权威期刊与学者图谱全量索引</span>
-            <span>·</span>
-            <span>严格遵守学术规范与引证标准</span>
+            <div className="flex items-center gap-4 text-[#86868B]">
+              <span>权威期刊与学者图谱全量索引</span>
+              <span>·</span>
+              <span>严格遵守学术规范与引证标准</span>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }

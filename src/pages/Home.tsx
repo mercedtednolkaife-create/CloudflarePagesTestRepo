@@ -544,30 +544,30 @@ export const Home: React.FC<HomeProps> = ({
 
   return (
     <div className="space-y-6 font-sans">
-      {/* 1. TOP PROMINENT SEARCH HERO (置顶搜索框) */}
-      <section className="bg-white rounded-2xl p-6 sm:p-8 border border-zinc-200 shadow-2xs space-y-5">
+      {/* 1. TOP PROMINENT SEARCH HERO (Apple Spotlight 聚光灯式检索) */}
+      <section className="apple-card p-6 sm:p-8 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-blue-50 border border-blue-200/60 text-[#0F52BA] text-[11px] font-semibold">
-              <Sparkles className="w-3.5 h-3.5" />
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/8 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold tracking-wide">
+              <Sparkles className="w-3.5 h-3.5 text-[#0071E3]" />
               <span>LawGlobal Knowledge Engine · 全网法学图谱检索</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-zinc-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               域外法学前沿检索与动态 (Jurisprudence Hub)
             </h1>
           </div>
         </div>
 
-        {/* Integrated Search Input Strip */}
+        {/* Integrated Spotlight Search Input Strip */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-          {/* Main Input Box */}
+          {/* Main Spotlight Input Box */}
           <div className="relative flex-1 group" ref={searchContainerRef}>
-            <div className="relative flex items-center bg-zinc-50 hover:bg-white rounded-xl border border-zinc-200 focus-within:border-[#0F52BA] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0F52BA]/10 shadow-xs transition-all">
-              <div className="pl-3.5 pr-2 text-zinc-400">
+            <div className="relative flex items-center bg-white hover:bg-white rounded-2xl border border-black/[0.08] focus-within:border-[#0071E3] focus-within:ring-4 focus-within:ring-[#0071E3]/15 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]">
+              <div className="pl-4 pr-2 text-[#86868B]">
                 {isSearchingFts ? (
-                  <Loader2 className="w-4 h-4 text-[#0F52BA] animate-spin" />
+                  <Loader2 className="w-4 h-4 text-[#0071E3] animate-spin" />
                 ) : (
-                  <Search className="w-4 h-4 text-zinc-500" />
+                  <Search className="w-4 h-4 text-[#86868B] group-focus-within:text-[#0071E3] transition-colors" />
                 )}
               </div>
               <input
@@ -577,7 +577,7 @@ export const Home: React.FC<HomeProps> = ({
                 onKeyDown={handleKeyDown}
                 onChange={(e) => setLocalSearchInput(e.target.value)}
                 placeholder="检索全球法学文献、学者名、DOI、期刊或裁判要旨 (输入后按 Enter 或点击【检索】)..."
-                className="w-full py-3 pr-24 text-xs sm:text-sm text-[#09090B] placeholder-zinc-400 bg-transparent focus:outline-none font-sans"
+                className="w-full py-3.5 pr-28 text-xs sm:text-sm text-[#1D1D1F] placeholder-[#86868B] bg-transparent focus:outline-none font-sans"
               />
 
               {/* Action Buttons inside Input */}
@@ -585,7 +585,7 @@ export const Home: React.FC<HomeProps> = ({
                 {localSearchInput && (
                   <button
                     onClick={handleClearSearch}
-                    className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-800 hover:bg-zinc-200 transition-colors cursor-pointer"
+                    className="p-1.5 rounded-lg text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.05] transition-colors cursor-pointer"
                     title="清空检索"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -595,24 +595,24 @@ export const Home: React.FC<HomeProps> = ({
                 <button
                   onClick={handlePerformSearch}
                   disabled={isSearchingFts}
-                  className="px-3.5 py-1.5 bg-zinc-900 hover:bg-[#0F52BA] text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                  className="px-3.5 py-1.5 bg-[#1D1D1F] hover:bg-[#0071E3] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all duration-200 cursor-pointer shadow-xs disabled:opacity-50"
                   title="按 Enter 或点击发起检索"
                 >
                   <span>检索</span>
-                  <CornerDownLeft className="w-3 h-3 opacity-70" />
+                  <kbd className="text-[10px] font-mono opacity-60 bg-white/15 px-1 py-0.2 rounded">↵</kbd>
                 </button>
               </div>
             </div>
 
             {/* Dropdown Quick Results if user triggers quick match */}
             {showFtsDropdown && ftsResults.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-zinc-200 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-zinc-100 max-h-80 overflow-y-auto">
-                <div className="bg-zinc-50 px-3.5 py-2 flex items-center justify-between text-[11px] text-zinc-500 font-sans border-b border-zinc-100">
-                  <span className="flex items-center gap-1 font-semibold text-zinc-700">
-                    <Sparkles className="w-3.5 h-3.5 text-[#0F52BA]" />
+              <div className="absolute left-0 right-0 top-full mt-2 apple-glass rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-black/[0.05] max-h-80 overflow-y-auto border border-black/[0.08]">
+                <div className="bg-black/[0.02] px-4 py-2.5 flex items-center justify-between text-[11px] text-[#6E6E73] font-sans border-b border-black/[0.04]">
+                  <span className="flex items-center gap-1.5 font-semibold text-[#1D1D1F]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#0071E3]" />
                     全文索引快速匹配 ({ftsResults.length})
                   </span>
-                  <span className="font-mono text-[10px]">点击可直接定位</span>
+                  <span className="font-mono text-[10px] text-[#86868B]">点击可直接定位</span>
                 </div>
                 {ftsResults.map((item, idx) => (
                   <div
@@ -633,10 +633,10 @@ export const Home: React.FC<HomeProps> = ({
                         onNavigateToTab('wishlist');
                       }
                     }}
-                    className="p-3 hover:bg-zinc-50 cursor-pointer transition-colors space-y-1 text-left"
+                    className="p-3.5 hover:bg-black/[0.03] cursor-pointer transition-colors space-y-1 text-left"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/[0.04] text-[#1D1D1F] border border-black/[0.05]">
                         {item.entityType === 'author'
                           ? '学者'
                           : item.entityType === 'journal'
@@ -646,12 +646,12 @@ export const Home: React.FC<HomeProps> = ({
                           : '文献'}
                       </span>
                       <div
-                        className="text-xs font-semibold text-zinc-900 truncate"
+                        className="text-xs font-semibold text-[#1D1D1F] truncate"
                         dangerouslySetInnerHTML={{ __html: item.titleHighlighted || item.rawTitle }}
                       />
                     </div>
                     <div
-                      className="text-[11px] text-zinc-600 line-clamp-2 leading-relaxed"
+                      className="text-[11px] text-[#6E6E73] line-clamp-2 leading-relaxed"
                       dangerouslySetInnerHTML={{
                         __html: item.contentHighlighted || item.rawContent,
                       }}
@@ -662,8 +662,8 @@ export const Home: React.FC<HomeProps> = ({
             )}
           </div>
 
-          {/* Jurisdiction Filter Toggle */}
-          <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl border border-zinc-200 shrink-0 overflow-x-auto">
+          {/* Jurisdiction Filter Toggle (Apple Segmented Style) */}
+          <div className="flex items-center gap-1 bg-black/[0.04] p-1 rounded-full border border-black/[0.05] shrink-0 overflow-x-auto">
             {JURISDICTIONS.map((j) => (
               <button
                 key={j.id}
@@ -671,10 +671,10 @@ export const Home: React.FC<HomeProps> = ({
                   setSelectedJurisdiction(j.id as JurisdictionType);
                   setSearchResultsPage(1);
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${
                   selectedJurisdiction === j.id
-                    ? 'bg-white text-[#09090B] shadow-xs font-bold'
-                    : 'text-zinc-600 hover:text-zinc-900'
+                    ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold scale-[1.02]'
+                    : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/50'
                 }`}
               >
                 {j.label}
@@ -684,9 +684,9 @@ export const Home: React.FC<HomeProps> = ({
         </div>
 
         {/* Topic Tag Pills */}
-        <div className="pt-4 border-t border-zinc-100 flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-          <span className="font-semibold text-zinc-500 text-[11px] whitespace-nowrap flex items-center gap-1 mr-1">
-            <Filter className="w-3.5 h-3.5 text-[#0F52BA]" />
+        <div className="pt-4 border-t border-black/[0.05] flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          <span className="font-semibold text-[#6E6E73] text-[11px] whitespace-nowrap flex items-center gap-1 mr-1">
+            <Filter className="w-3.5 h-3.5 text-[#0071E3]" />
             领域细分:
           </span>
           {TOPIC_TAGS.map((tag) => (
@@ -696,13 +696,13 @@ export const Home: React.FC<HomeProps> = ({
                 setSelectedTag(tag);
                 setSearchResultsPage(1);
               }}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer ${
                 selectedTag === tag
-                  ? 'bg-zinc-900 text-white shadow-2xs font-bold'
-                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900 border border-zinc-200'
+                  ? 'bg-[#1D1D1F] text-white shadow-xs font-semibold scale-[1.02]'
+                  : 'bg-white/80 hover:bg-white text-[#6E6E73] hover:text-[#1D1D1F] border border-black/[0.06]'
               }`}
             >
-              {tag}
+              #{tag}
             </button>
           ))}
         </div>

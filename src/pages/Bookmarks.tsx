@@ -183,18 +183,18 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
   return (
     <div className="space-y-6 font-sans">
       {/* Header Banner */}
-      <div className="bg-white rounded-2xl p-6 sm:p-8 border border-zinc-200 shadow-2xs">
+      <div className="apple-card rounded-2xl sm:rounded-[24px] p-6 sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-blue-50 border border-blue-200/60 text-[#0F52BA] text-[11px] font-semibold">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
               <Bookmark className="w-3.5 h-3.5" />
               <span>Personal Archive ({user?.username})</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-zinc-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               学者个人收藏夹与引证导出 (Bookmarks)
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-600 max-w-2xl font-sans">
-              当前书签严格与您的个人账号 <strong className="text-zinc-800 font-mono">({user?.username})</strong> 隔离绑定。支持勾选文献并纯前端一键导出标准 BibTeX 格式。
+            <p className="text-xs sm:text-sm text-[#6E6E73] max-w-2xl font-sans">
+              当前书签严格与您的个人账号 <strong className="text-[#1D1D1F] font-mono">({user?.username})</strong> 隔离绑定。支持勾选文献并纯前端一键导出标准 BibTeX 格式。
             </p>
           </div>
 
@@ -203,7 +203,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
             <button
               onClick={handleExportSelectedBibTeX}
               disabled={selectedPaperIds.size === 0}
-              className="px-4 py-2.5 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-[#0F52BA] transition-colors flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2.5 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
               <span>导出所选 BibTeX ({selectedPaperIds.size})</span>
@@ -211,58 +211,60 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
           </div>
         </div>
 
-        {/* Tab Filters */}
-        <div className="mt-6 pt-6 border-t border-zinc-100 flex flex-wrap gap-2 items-center">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'all'
-                ? 'bg-zinc-900 text-white shadow-2xs'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-            }`}
-          >
-            全部收藏 ({totalSavedCount})
-          </button>
-          <button
-            onClick={() => setActiveTab('papers')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'papers'
-                ? 'bg-zinc-900 text-white shadow-2xs'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>标星文献 ({papers.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('authors')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'authors'
-                ? 'bg-zinc-900 text-white shadow-2xs'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>关注学者 ({authors.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('journals')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'journals'
-                ? 'bg-zinc-900 text-white shadow-2xs'
-                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
-            }`}
-          >
-            <Library className="w-3.5 h-3.5" />
-            <span>置顶期刊 ({journals.length})</span>
-          </button>
+        {/* Tab Filters (Apple Segmented Capsule) */}
+        <div className="mt-6 pt-6 border-t border-black/[0.04] flex flex-wrap gap-1.5 items-center">
+          <div className="flex items-center bg-black/[0.04] p-1 rounded-full border border-black/[0.04] text-xs overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'all'
+                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+              }`}
+            >
+              全部收藏 ({totalSavedCount})
+            </button>
+            <button
+              onClick={() => setActiveTab('papers')}
+              className={`px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'papers'
+                  ? 'bg-white text-[#0071E3] shadow-xs font-semibold'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>标星文献 ({papers.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('authors')}
+              className={`px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'authors'
+                  ? 'bg-white text-[#0071E3] shadow-xs font-semibold'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>关注学者 ({authors.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('journals')}
+              className={`px-3.5 py-1.5 rounded-full font-medium transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === 'journals'
+                  ? 'bg-white text-[#0071E3] shadow-xs font-semibold'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+              }`}
+            >
+              <Library className="w-3.5 h-3.5" />
+              <span>置顶期刊 ({journals.length})</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Loading state */}
       {isLoading && (
-        <div className="py-16 text-center text-zinc-400 flex flex-col items-center justify-center gap-3">
-          <Loader2 className="w-7 h-7 animate-spin text-[#0F52BA]" />
+        <div className="py-16 text-center text-[#86868B] flex flex-col items-center justify-center gap-3">
+          <Loader2 className="w-7 h-7 animate-spin text-[#0071E3]" />
           <p className="text-xs font-medium">正在读取个人学术收藏夹...</p>
         </div>
       )}
@@ -272,23 +274,23 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
         <div className="space-y-6">
           {/* SECTION 1: PAPERS (文献导出区) */}
           {(activeTab === 'all' || activeTab === 'papers') && (
-            <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
+            <div className="apple-card rounded-2xl sm:rounded-[22px] p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-black/[0.04]">
                 <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-[#0F52BA]" />
-                  <h2 className="font-bold text-sm text-zinc-900">标星文献库 ({papers.length})</h2>
+                  <BookOpen className="w-4 h-4 text-[#0071E3]" />
+                  <h2 className="font-bold text-sm text-[#1D1D1F]">标星文献库 ({papers.length})</h2>
                 </div>
 
                 {papers.length > 0 && (
                   <div className="flex items-center gap-2 text-xs">
                     <button
                       onClick={handleToggleSelectAll}
-                      className="px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-3 py-1 bg-[#F5F5F7] hover:bg-black/[0.06] text-[#1D1D1F] rounded-full font-medium flex items-center gap-1.5 transition-colors cursor-pointer border border-black/[0.04]"
                     >
                       {selectedPaperIds.size === papers.length ? (
-                        <CheckSquare className="w-3.5 h-3.5 text-[#0F52BA]" />
+                        <CheckSquare className="w-3.5 h-3.5 text-[#0071E3]" />
                       ) : (
-                        <Square className="w-3.5 h-3.5 text-zinc-400" />
+                        <Square className="w-3.5 h-3.5 text-[#86868B]" />
                       )}
                       <span>
                         {selectedPaperIds.size === papers.length ? '取消全选' : '全选文献'}
@@ -306,39 +308,39 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                       return (
                         <div
                           key={paper.id}
-                          className={`p-4 rounded-xl border transition-all flex items-start justify-between gap-3 ${
-                            isSelected ? 'bg-blue-50/20 border-blue-200' : 'bg-zinc-50/60 border-zinc-200'
+                          className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-3 ${
+                            isSelected ? 'bg-[#0071E3]/5 border-[#0071E3]/30 shadow-xs' : 'bg-[#F5F5F7]/80 border-black/[0.04] hover:border-black/[0.08]'
                           }`}
                         >
                           <div className="flex items-start gap-3 flex-1">
                             <button
                               onClick={() => handleToggleSelectPaper(paper.id)}
-                              className="mt-1 text-zinc-400 hover:text-[#0F52BA] cursor-pointer"
+                              className="mt-1 text-[#86868B] hover:text-[#0071E3] cursor-pointer"
                             >
                               {isSelected ? (
-                                <CheckSquare className="w-4 h-4 text-[#0F52BA]" />
+                                <CheckSquare className="w-4 h-4 text-[#0071E3]" />
                               ) : (
-                                <Square className="w-4 h-4 text-zinc-300" />
+                                <Square className="w-4 h-4 text-[#86868B]/40" />
                               )}
                             </button>
 
                             <div className="space-y-1.5">
                               <div className="flex items-center gap-2">
-                                <span className="px-2 py-0.2 rounded bg-zinc-900 text-white text-[10px] font-bold">
+                                <span className="px-2.5 py-0.5 rounded-full bg-[#1D1D1F] text-white text-[10px] font-semibold tracking-tight">
                                   {paper.journalNameCn || paper.journalName}
                                 </span>
                                 {paper.publishedAt && (
-                                  <span className="text-[10px] text-zinc-400 font-mono">
+                                  <span className="text-[10px] text-[#86868B] font-mono">
                                     {paper.publishedAt}
                                   </span>
                                 )}
                               </div>
-                              <h3 className="text-xs sm:text-sm font-bold text-zinc-900 font-editorial-heading">
-                                <a href={paper.url} target="_blank" rel="noopener noreferrer" className="hover:text-[#0F52BA]">
+                              <h3 className="text-xs sm:text-sm font-bold text-[#1D1D1F] font-editorial-heading">
+                                <a href={paper.url} target="_blank" rel="noopener noreferrer" className="hover:text-[#0071E3] transition-colors">
                                   {paper.title}
                                 </a>
                               </h3>
-                              <div className="text-[11px] text-zinc-500">
+                              <div className="text-[11px] text-[#6E6E73]">
                                 <span>著者: {(paper.authors || []).map((a) => typeof a === 'string' ? a : (a as any)?.name || (a as any)?.nameCn || '学者').join(' · ')}</span>
                               </div>
                             </div>
@@ -347,7 +349,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               onClick={() => handleRemoveBookmark('paper', paper.id, paper.title)}
-                              className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                              className="p-1.5 text-[#86868B] hover:text-[#FF3B30] rounded-full hover:bg-[#FF3B30]/10 transition-colors cursor-pointer"
                               title="取消收藏"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -370,7 +372,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                   />
                 </>
               ) : (
-                <div className="py-8 text-center text-xs text-zinc-400">
+                <div className="py-8 text-center text-xs text-[#86868B]">
                   暂未收藏任何文献，可在文献库中点击星标进行收藏。
                 </div>
               )}
@@ -379,10 +381,10 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
 
           {/* SECTION 2: AUTHORS (学者关注区) */}
           {(activeTab === 'all' || activeTab === 'authors') && (
-            <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-zinc-100">
-                <Users className="w-4 h-4 text-[#0F52BA]" />
-                <h2 className="font-bold text-sm text-zinc-900">关注学者画像 ({authors.length})</h2>
+            <div className="apple-card rounded-2xl sm:rounded-[22px] p-6 space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-black/[0.04]">
+                <Users className="w-4 h-4 text-[#0071E3]" />
+                <h2 className="font-bold text-sm text-[#1D1D1F]">关注学者画像 ({authors.length})</h2>
               </div>
 
               {authors.length > 0 ? (
@@ -390,27 +392,27 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                   {authors.map((author) => (
                     <div
                       key={author.id}
-                      className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/60 flex items-center justify-between gap-3"
+                      className="p-4 rounded-2xl border border-black/[0.04] bg-[#F5F5F7]/80 hover:bg-[#F5F5F7] transition-all flex items-center justify-between gap-3"
                     >
                       <div className="space-y-1">
-                        <div className="text-xs font-bold text-zinc-900 flex items-center gap-1.5 flex-wrap">
+                        <div className="text-xs font-bold text-[#1D1D1F] flex items-center gap-1.5 flex-wrap">
                           <span>{author.name}</span>
                           {author.nameCn && (
-                            <span className="text-[10px] text-zinc-500 font-normal">
+                            <span className="text-[10px] text-[#6E6E73] font-normal">
                               ({author.nameCn})
                             </span>
                           )}
                         </div>
                         {author.institution && (
-                          <div className="text-[10px] text-zinc-500">{author.institution.name}</div>
+                          <div className="text-[10px] text-[#6E6E73]">{author.institution.name}</div>
                         )}
                         {author.tags && (
-                          <div className="text-[10px] text-blue-700">#{author.tags.slice(0, 2).join(' #')}</div>
+                          <div className="text-[10px] text-[#0071E3]">#{author.tags.slice(0, 2).join(' #')}</div>
                         )}
                       </div>
                       <button
                         onClick={() => handleRemoveBookmark('author', author.id, author.name)}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                        className="p-1.5 text-[#86868B] hover:text-[#FF3B30] rounded-full hover:bg-[#FF3B30]/10 transition-colors cursor-pointer"
                         title="取消关注"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -419,7 +421,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                   ))}
                 </div>
               ) : (
-                <div className="py-8 text-center text-xs text-zinc-400">
+                <div className="py-8 text-center text-xs text-[#86868B]">
                   暂无关注的学者，可在学者画像库中点击关注。
                 </div>
               )}
@@ -428,10 +430,10 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
 
           {/* SECTION 3: JOURNALS (置顶期刊区) */}
           {(activeTab === 'all' || activeTab === 'journals') && (
-            <div className="bg-white rounded-2xl border border-zinc-200 p-6 space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-zinc-100">
-                <Library className="w-4 h-4 text-[#0F52BA]" />
-                <h2 className="font-bold text-sm text-zinc-900">置顶核心期刊 ({journals.length})</h2>
+            <div className="apple-card rounded-2xl sm:rounded-[22px] p-6 space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-black/[0.04]">
+                <Library className="w-4 h-4 text-[#0071E3]" />
+                <h2 className="font-bold text-sm text-[#1D1D1F]">置顶核心期刊 ({journals.length})</h2>
               </div>
 
               {journals.length > 0 ? (
@@ -439,15 +441,15 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                   {journals.map((journal) => (
                     <div
                       key={journal.id}
-                      className="p-4 rounded-xl border border-zinc-200 bg-zinc-50/60 flex items-center justify-between gap-3"
+                      className="p-4 rounded-2xl border border-black/[0.04] bg-[#F5F5F7]/80 hover:bg-[#F5F5F7] transition-all flex items-center justify-between gap-3"
                     >
                       <div className="space-y-1">
-                        <div className="text-xs font-bold text-zinc-900">{journal.nameCn}</div>
-                        <div className="text-[10px] text-zinc-500">{journal.impactRank || journal.name}</div>
+                        <div className="text-xs font-bold text-[#1D1D1F]">{journal.nameCn}</div>
+                        <div className="text-[10px] text-[#6E6E73]">{journal.impactRank || journal.name}</div>
                       </div>
                       <button
                         onClick={() => handleRemoveBookmark('journal', journal.id, journal.nameCn)}
-                        className="p-1.5 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                        className="p-1.5 text-[#86868B] hover:text-[#FF3B30] rounded-full hover:bg-[#FF3B30]/10 transition-colors cursor-pointer"
                         title="取消置顶"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -456,7 +458,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
                   ))}
                 </div>
               ) : (
-                <div className="py-8 text-center text-xs text-zinc-400">
+                <div className="py-8 text-center text-xs text-[#86868B]">
                   暂无置顶期刊，可在期刊架点击置顶图钉。
                 </div>
               )}
@@ -464,16 +466,16 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
           )}
 
           {totalSavedCount === 0 && (
-            <div className="py-16 text-center bg-white rounded-2xl border border-zinc-200 space-y-3">
-              <Bookmark className="w-10 h-10 text-zinc-300 mx-auto" />
-              <h3 className="text-sm font-bold text-zinc-800">个人书签收藏夹为空</h3>
-              <p className="text-xs text-zinc-500">
+            <div className="py-16 text-center apple-card rounded-2xl sm:rounded-[22px] space-y-3">
+              <Bookmark className="w-10 h-10 text-[#86868B]/40 mx-auto" />
+              <h3 className="text-sm font-bold text-[#1D1D1F]">个人书签收藏夹为空</h3>
+              <p className="text-xs text-[#86868B]">
                 在文献信息流或学者库中点击星标即可添加至此，随时进行学术引证导出。
               </p>
               {onNavigateToFeed && (
                 <button
                   onClick={onNavigateToFeed}
-                  className="px-4 py-2 bg-zinc-900 text-white rounded-lg text-xs font-semibold hover:bg-[#0F52BA] transition-colors cursor-pointer"
+                  className="px-5 py-2.5 bg-[#0071E3] hover:bg-[#0077ED] text-white rounded-full text-xs font-semibold transition-colors cursor-pointer shadow-xs"
                 >
                   去发现文献
                 </button>

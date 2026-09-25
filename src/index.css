@@ -57,4 +57,92 @@
   background: rgba(0, 0, 0, 0.28);
 }
 
+/* Apple Hardware-Accelerated Ambient Mesh Keyframes */
+@keyframes apple-ambient-1 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(24px, -30px, 0) scale(1.08);
+  }
+}
+
+@keyframes apple-ambient-2 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-28px, 20px, 0) scale(1.05);
+  }
+}
+
+@keyframes apple-ambient-3 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(18px, 25px, 0) scale(0.96);
+  }
+}
+
+.animate-apple-ambient-1 {
+  animation: apple-ambient-1 22s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-apple-ambient-2 {
+  animation: apple-ambient-2 26s ease-in-out infinite;
+  will-change: transform;
+}
+
+.animate-apple-ambient-3 {
+  animation: apple-ambient-3 28s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Precision Micro-Dot Grid Pattern (Apple Engineering blueprint feel) */
+.apple-dot-grid {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Apple Liquid Frost Glass & Card Elevation */
+.apple-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.apple-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 16px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 113, 227, 0.2);
+}
+
+/* Apple Tabular Numbers for Metrics */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Reduced Motion Support for Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .animate-apple-ambient-1,
+  .animate-apple-ambient-2,
+  .animate-apple-ambient-3 {
+    animation: none !important;
+  }
+}
+
 

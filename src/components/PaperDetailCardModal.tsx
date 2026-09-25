@@ -101,12 +101,12 @@ export const PaperDetailCardModal: React.FC<PaperDetailCardModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs font-sans overflow-y-auto animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/40 backdrop-blur-md font-sans overflow-y-auto animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
         id={`paper-full-card-${paper.id}`}
-        className="bg-white w-full max-w-4xl max-h-[92vh] rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col my-auto transition-all"
+        className="bg-white w-full max-w-4xl max-h-[92vh] rounded-2xl sm:rounded-3xl border border-black/[0.08] shadow-[0_25px_70px_rgba(0,0,0,0.18)] overflow-hidden flex flex-col my-auto transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Card Header */}

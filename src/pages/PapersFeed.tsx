@@ -6,6 +6,7 @@ import { Pagination } from '../components/Pagination';
 import { copyToClipboard } from '../lib/clipboard';
 import {
   BookOpen,
+  Library,
   Star,
   ExternalLink,
   Tag,
@@ -531,8 +532,8 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
         </div>
       </div>
 
-      {/* Search & Cascading Dropdown Filter Bar (Apple-style rounded container) */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 bg-white p-4 sm:p-5 rounded-[22px] border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+      {/* Search & Cascading Dropdown Filter Bar (Apple-style frosted container) */}
+      <div className="apple-card p-4 sm:p-5 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5">
         {/* Left Side: Search Input Box & Language Mode Switcher */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
           <div className="relative flex-1 min-w-[220px] max-w-md flex items-center">
@@ -543,7 +544,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
               onKeyDown={handleKeyDown}
               onChange={(e) => setLocalSearchInput(e.target.value)}
               placeholder="搜索篇名、中英摘要、学者、学科分类 (按 Enter)..."
-              className="w-full pl-9 pr-20 py-2.5 bg-[#F5F5F7] border border-black/[0.06] rounded-full text-xs text-[#1D1D1F] placeholder-[#86868B] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition-all"
+              className="w-full pl-9 pr-20 py-2.5 bg-white/90 border border-black/[0.08] rounded-full text-xs text-[#1D1D1F] placeholder-[#86868B] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#0071E3]/15 focus:border-[#0071E3] transition-all"
             />
             <button
               onClick={handleTriggerSearch}
@@ -555,13 +556,13 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
           </div>
 
           {/* Bilingual Language Mode Selector (Apple Segmented Style) */}
-          <div className="flex items-center bg-black/[0.04] p-1 rounded-full border border-black/[0.04] text-xs shrink-0 self-start sm:self-auto">
+          <div className="flex items-center bg-black/[0.04] p-1 rounded-full border border-black/[0.05] text-xs shrink-0 self-start sm:self-auto">
             <button
               onClick={() => setLangMode('bilingual')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer flex items-center gap-1 ${
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
                 langMode === 'bilingual'
-                  ? 'bg-white text-[#0071E3] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#0071E3] shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/50'
               }`}
               title="中英对照显示篇名与摘要"
             >
@@ -570,10 +571,10 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
             </button>
             <button
               onClick={() => setLangMode('zh')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer ${
                 langMode === 'zh'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/50'
               }`}
               title="优先展示中文"
             >
@@ -581,10 +582,10 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
             </button>
             <button
               onClick={() => setLangMode('en')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer ${
                 langMode === 'en'
-                  ? 'bg-white text-[#1D1D1F] shadow-xs font-semibold'
-                  : 'text-[#6E6E73] hover:text-[#1D1D1F]'
+                  ? 'bg-white text-[#1D1D1F] shadow-[0_1px_3px_rgba(0,0,0,0.08)] font-semibold'
+                  : 'text-[#6E6E73] hover:text-[#1D1D1F] hover:bg-white/50'
               }`}
               title="展示英文原版"
             >
@@ -595,83 +596,110 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
 
         {/* Right Side: Cascading Journal -> Vol -> Issue Dropdown Selectors */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-start lg:justify-end">
-          {/* 1. 期刊名下拉选项 */}
-          <div className="relative flex items-center">
+          {/* 1. 期刊名下拉选项 (Apple 磨砂药丸容器与原生矢量图标) */}
+          <div className="relative flex items-center group">
+            <Library
+              className={`w-3.5 h-3.5 absolute left-3 pointer-events-none transition-colors ${
+                selectedJournal !== '全部期刊' ? 'text-[#0071E3]' : 'text-[#86868B] group-hover:text-[#1D1D1F]'
+              }`}
+            />
             <select
               value={selectedJournal}
               onChange={(e) => handleJournalChange(e.target.value)}
-              className={`pl-3.5 pr-8 py-2 bg-[#F5F5F7] hover:bg-black/[0.05] border rounded-full text-xs font-medium appearance-none transition-all cursor-pointer max-w-[200px] truncate ${
+              className={`pl-8 pr-7 py-2 rounded-full text-xs font-medium appearance-none transition-all duration-200 cursor-pointer max-w-[210px] truncate ${
                 selectedJournal !== '全部期刊'
-                  ? 'border-[#0071E3] bg-[#0071E3]/5 text-[#0071E3] font-semibold'
-                  : 'border-black/[0.06] text-[#1D1D1F]'
+                  ? 'bg-[#0071E3]/8 border border-[#0071E3]/40 text-[#0071E3] font-semibold shadow-xs ring-2 ring-[#0071E3]/10'
+                  : 'bg-[#F5F5F7] hover:bg-black/[0.05] border border-black/[0.06] text-[#1D1D1F]'
               }`}
-              title="按期刊名过滤"
+              title="按核心期刊过滤"
             >
-              <option value="全部期刊">📚 全部期刊 (All Journals)</option>
+              <option value="全部期刊">全部核心期刊 (All Journals)</option>
               {journalOptions.map((j) => (
                 <option key={j.name} value={j.name}>
                   {j.nameCn ? `${j.nameCn} (${j.abbr || j.name})` : j.name}
                 </option>
               ))}
             </select>
-            <ChevronDown className="w-3.5 h-3.5 text-[#86868B] absolute right-2.5 pointer-events-none" />
+            <ChevronDown
+              className={`w-3.5 h-3.5 absolute right-2.5 pointer-events-none transition-colors ${
+                selectedJournal !== '全部期刊' ? 'text-[#0071E3]' : 'text-[#86868B]'
+              }`}
+            />
           </div>
 
           {/* 2. 卷 (Vol) 下拉选项 (选中期刊后且存在卷数据时显示) */}
           {selectedJournal !== '全部期刊' && availableVolumes.length > 0 && (
-            <div className="relative flex items-center animate-in fade-in zoom-in-95 duration-150">
+            <div className="relative flex items-center group animate-in fade-in zoom-in-95 duration-150">
+              <Layers
+                className={`w-3.5 h-3.5 absolute left-3 pointer-events-none transition-colors ${
+                  selectedVolume !== '全部卷' ? 'text-[#0071E3]' : 'text-[#86868B]'
+                }`}
+              />
               <select
                 value={selectedVolume}
                 onChange={(e) => handleVolumeChange(e.target.value)}
-                className={`pl-3.5 pr-8 py-2 bg-[#F5F5F7] hover:bg-black/[0.05] border rounded-full text-xs font-medium appearance-none transition-all cursor-pointer ${
+                className={`pl-8 pr-7 py-2 rounded-full text-xs font-medium appearance-none transition-all duration-200 cursor-pointer ${
                   selectedVolume !== '全部卷'
-                    ? 'border-[#0071E3] bg-[#0071E3]/5 text-[#0071E3] font-semibold'
-                    : 'border-black/[0.06] text-[#1D1D1F]'
+                    ? 'bg-[#0071E3]/8 border border-[#0071E3]/40 text-[#0071E3] font-semibold shadow-xs ring-2 ring-[#0071E3]/10'
+                    : 'bg-[#F5F5F7] hover:bg-black/[0.05] border border-black/[0.06] text-[#1D1D1F]'
                 }`}
                 title="按卷号 (Volume) 过滤"
               >
-                <option value="全部卷">卷: 全部卷 (All)</option>
+                <option value="全部卷">全部卷 (All)</option>
                 {availableVolumes.map((vol) => (
                   <option key={vol} value={vol}>
                     {vol}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 pointer-events-none" />
+              <ChevronDown
+                className={`w-3.5 h-3.5 absolute right-2.5 pointer-events-none transition-colors ${
+                  selectedVolume !== '全部卷' ? 'text-[#0071E3]' : 'text-[#86868B]'
+                }`}
+              />
             </div>
           )}
 
           {/* 3. 期 (Issue) 下拉选项 (选中卷后且存在期数据时显示) */}
           {selectedJournal !== '全部期刊' && selectedVolume !== '全部卷' && availableIssues.length > 0 && (
-            <div className="relative flex items-center animate-in fade-in zoom-in-95 duration-150">
+            <div className="relative flex items-center group animate-in fade-in zoom-in-95 duration-150">
+              <BookOpen
+                className={`w-3.5 h-3.5 absolute left-3 pointer-events-none transition-colors ${
+                  selectedIssue !== '全部期' ? 'text-[#0071E3]' : 'text-[#86868B]'
+                }`}
+              />
               <select
                 value={selectedIssue}
                 onChange={(e) => handleIssueChange(e.target.value)}
-                className={`pl-3.5 pr-8 py-2 bg-[#F5F5F7] hover:bg-black/[0.05] border rounded-full text-xs font-medium appearance-none transition-all cursor-pointer ${
+                className={`pl-8 pr-7 py-2 rounded-full text-xs font-medium appearance-none transition-all duration-200 cursor-pointer ${
                   selectedIssue !== '全部期'
-                    ? 'border-[#0071E3] bg-[#0071E3]/5 text-[#0071E3] font-semibold'
-                    : 'border-black/[0.06] text-[#1D1D1F]'
+                    ? 'bg-[#0071E3]/8 border border-[#0071E3]/40 text-[#0071E3] font-semibold shadow-xs ring-2 ring-[#0071E3]/10'
+                    : 'bg-[#F5F5F7] hover:bg-black/[0.05] border border-black/[0.06] text-[#1D1D1F]'
                 }`}
                 title="按期号 (Issue) 过滤"
               >
-                <option value="全部期">期: 全部期 (All)</option>
+                <option value="全部期">全部期 (All)</option>
                 {availableIssues.map((iss) => (
                   <option key={iss} value={iss}>
                     {iss}
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-[#86868B] absolute right-2.5 pointer-events-none" />
+              <ChevronDown
+                className={`w-3.5 h-3.5 absolute right-2.5 pointer-events-none transition-colors ${
+                  selectedIssue !== '全部期' ? 'text-[#0071E3]' : 'text-[#86868B]'
+                }`}
+              />
             </div>
           )}
 
           {/* Reset Filter Button */}
           <button
             onClick={handleResetAllFilters}
-            className="px-3.5 py-2 bg-black/[0.04] hover:bg-black/[0.08] text-[#6E6E73] hover:text-[#1D1D1F] rounded-full text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer shrink-0 border border-black/[0.04]"
+            className="group px-3.5 py-2 bg-black/[0.04] hover:bg-black/[0.08] text-[#6E6E73] hover:text-[#1D1D1F] rounded-full text-xs font-medium flex items-center gap-1.5 transition-all duration-200 cursor-pointer shrink-0 border border-black/[0.04] active:scale-95"
             title="重置所有筛选"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <RotateCcw className="w-3.5 h-3.5 group-hover:-rotate-45 transition-transform duration-200" />
             <span>重置</span>
           </button>
         </div>
@@ -788,10 +816,10 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
                 return (
                   <div
                     key={paper.id}
-                    className={`bg-white rounded-[22px] border p-5 sm:p-6 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(0,0,0,0.06)] hover:border-black/[0.12] relative ${
+                    className={`apple-card p-5 sm:p-6 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:shadow-[0_12px_36px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 relative ${
                       paper.isBookmarked
-                        ? 'border-[#0071E3]/30 bg-[#0071E3]/[0.015]'
-                        : 'border-black/[0.06] shadow-[0_2px_10px_rgba(0,0,0,0.02)]'
+                        ? 'border-[#0071E3]/40 bg-white/95 ring-1 ring-[#0071E3]/20 shadow-[0_4px_20px_rgba(0,113,227,0.06)]'
+                        : 'hover:border-black/[0.1]'
                     }`}
                   >
                     {/* Bookmarked Badge Pin */}

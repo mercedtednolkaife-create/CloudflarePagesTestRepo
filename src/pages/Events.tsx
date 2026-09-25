@@ -133,7 +133,7 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
   return (
     <div className="space-y-6 font-sans">
       {/* Top Banner with KPIs */}
-      <div className="bg-white rounded-[22px] p-6 sm:p-8 border border-black/[0.06] shadow-[0_2px_16px_rgba(0,0,0,0.03)]">
+      <div className="apple-card rounded-2xl sm:rounded-[24px] p-6 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2.5 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 text-[#0071E3] text-[11px] font-medium tracking-tight">
@@ -148,19 +148,19 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
           {/* Quick Metrics Grid (Apple-style rounded-2xl widgets) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-[#F5F5F7] border border-black/[0.04] rounded-2xl p-3.5 text-center">
-              <div className="text-2xl font-bold font-mono text-[#1D1D1F] tracking-tight">{stats.total}</div>
+              <div className="text-2xl font-bold font-mono text-[#1D1D1F] tracking-tight tabular-nums">{stats.total}</div>
               <div className="text-[11px] text-[#86868B] font-medium mt-0.5">监测活动</div>
             </div>
             <div className="bg-[#FF3B30]/5 border border-[#FF3B30]/15 rounded-2xl p-3.5 text-center">
-              <div className="text-2xl font-bold font-mono text-[#FF3B30] tracking-tight">{stats.urgent}</div>
+              <div className="text-2xl font-bold font-mono text-[#FF3B30] tracking-tight tabular-nums">{stats.urgent}</div>
               <div className="text-[11px] text-[#FF3B30] font-medium mt-0.5">紧急倒计时</div>
             </div>
             <div className="bg-[#0071E3]/5 border border-[#0071E3]/15 rounded-2xl p-3.5 text-center">
-              <div className="text-2xl font-bold font-mono text-[#0071E3] tracking-tight">{stats.cfp}</div>
+              <div className="text-2xl font-bold font-mono text-[#0071E3] tracking-tight tabular-nums">{stats.cfp}</div>
               <div className="text-[11px] text-[#0071E3] font-medium mt-0.5">特刊/征文</div>
             </div>
             <div className="bg-[#AF52DE]/5 border border-[#AF52DE]/15 rounded-2xl p-3.5 text-center">
-              <div className="text-2xl font-bold font-mono text-[#AF52DE] tracking-tight">{stats.job}</div>
+              <div className="text-2xl font-bold font-mono text-[#AF52DE] tracking-tight tabular-nums">{stats.job}</div>
               <div className="text-[11px] text-[#AF52DE] font-medium mt-0.5">教职/博士后</div>
             </div>
           </div>
@@ -168,7 +168,7 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
       </div>
 
       {/* Filter and Track Selector Bar (Apple Segmented Style) */}
-      <div className="bg-white p-4 rounded-[20px] border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)] space-y-3">
+      <div className="apple-card p-4 rounded-2xl sm:rounded-[22px] space-y-3">
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Track Tabs */}
           <div className="flex items-center bg-black/[0.04] p-1 rounded-full border border-black/[0.04] text-xs overflow-x-auto">
@@ -286,10 +286,10 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
             return (
               <div
                 key={evt.id}
-                className={`bg-white rounded-[22px] border p-5 sm:p-6 transition-all duration-300 hover:shadow-[0_10px_30px_rgba(0,0,0,0.06)] hover:border-black/[0.12] space-y-4 relative ${
+                className={`apple-card apple-card-hover rounded-2xl sm:rounded-[22px] p-5 sm:p-6 space-y-4 relative ${
                   countdown.isUrgent || evt.isUrgent
                     ? 'border-[#FF3B30]/30 bg-[#FF3B30]/[0.015]'
-                    : 'border-black/[0.06] shadow-[0_2px_10px_rgba(0,0,0,0.02)]'
+                    : ''
                 }`}
               >
                 {/* Header Row: Category, Type, Status Badges */}
@@ -505,10 +505,10 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
             );
           })
         ) : (
-          <div className="bg-white rounded-2xl border border-zinc-200 p-12 text-center text-zinc-500 space-y-3">
-            <CalendarClock className="w-8 h-8 mx-auto text-zinc-400 opacity-60" />
-            <div className="text-sm font-semibold text-zinc-700">暂无符合条件的学术征稿或教职项目</div>
-            <p className="text-xs text-zinc-400">尝试更换筛选轨道或清除搜索关键词</p>
+          <div className="apple-card rounded-2xl sm:rounded-[22px] p-12 text-center text-[#86868B] space-y-3">
+            <CalendarClock className="w-8 h-8 mx-auto text-[#86868B] opacity-60" />
+            <div className="text-sm font-semibold text-[#1D1D1F]">暂无符合条件的学术征稿或教职项目</div>
+            <p className="text-xs text-[#86868B]">尝试更换筛选轨道或清除搜索关键词</p>
           </div>
         )}
       </div>
