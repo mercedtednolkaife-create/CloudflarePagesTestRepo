@@ -145,4 +145,13 @@
   }
 }
 
+/* Hide scrollbar for smooth native Apple scroll areas */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 

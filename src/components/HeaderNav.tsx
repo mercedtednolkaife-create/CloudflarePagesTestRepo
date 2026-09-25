@@ -98,7 +98,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           </div>
 
           {/* Navigation Tabs (Apple Segmented Style) */}
-          <nav className="flex items-center gap-1 font-sans text-xs font-medium overflow-x-auto py-1 bg-black/[0.04] p-1 rounded-full border border-black/[0.06] backdrop-blur-md">
+          <nav className="flex items-center gap-1 font-sans text-xs font-medium overflow-x-auto no-scrollbar py-1 bg-black/[0.04] p-1 rounded-full border border-black/[0.06] backdrop-blur-md">
             <button
               id="nav-tab-home"
               onClick={() => setActiveTab('home')}

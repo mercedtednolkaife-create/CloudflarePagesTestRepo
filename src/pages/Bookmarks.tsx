@@ -21,11 +21,16 @@ import {
 } from 'lucide-react';
 
 interface BookmarksProps {
+  isActive?: boolean;
   onShowToast?: (msg: string, type?: 'success' | 'error') => void;
   onNavigateToFeed?: () => void;
 }
 
-export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToFeed }) => {
+export const Bookmarks: React.FC<BookmarksProps> = ({ 
+  isActive = true,
+  onShowToast, 
+  onNavigateToFeed 
+}) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'papers' | 'authors' | 'journals'>('all');
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -74,8 +79,10 @@ export const Bookmarks: React.FC<BookmarksProps> = ({ onShowToast, onNavigateToF
   }, [onShowToast]);
 
   useEffect(() => {
-    loadAllBookmarks();
-  }, [loadAllBookmarks]);
+    if (isActive) {
+      loadAllBookmarks();
+    }
+  }, [isActive, loadAllBookmarks]);
 
   // Toggle Single Paper Selection for Export
   const handleToggleSelectPaper = (id: string) => {

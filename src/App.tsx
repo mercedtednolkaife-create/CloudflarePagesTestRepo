@@ -41,6 +41,17 @@ function AppContent() {
 
   // Navigation State - defaults to 'home'
   const [activeTab, setActiveTab] = useState<NavTab>('home');
+  // Visited Tabs Tracking (Lazy Mount + Keep-Alive pattern to prevent unnecessary re-fetching and retain view state)
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(() => new Set(['home']));
+
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   // Specific Filters across Views
   const [filterAuthor, setFilterAuthor] = useState<string | null>(null);
@@ -464,113 +475,128 @@ function AppContent() {
 
         {!isLoading && (
           <>
-            {/* VIEW 0: HOME PAGE (全新主页 - 保留置顶搜索框，陈列本周更新的文章、学者、活动与期刊，搜索后直接在下方分页展示结果) */}
-            {activeTab === 'home' && (
-              <Home
-                articles={articles}
-                events={events}
-                journals={journals}
-                authors={authors}
-                wishlists={wishlist}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                selectedTag={selectedTag}
-                setSelectedTag={setSelectedTag}
-                selectedJurisdiction={selectedJurisdiction}
-                setSelectedJurisdiction={setSelectedJurisdiction}
-                onFilterByJournal={handleFilterByJournal}
-                onViewAuthorPapers={handleViewAuthorPapers}
-                onViewPaperInFeed={handleViewPaperInFeed}
-                onNavigateToTab={setActiveTab}
-                onResetFilters={handleResetFilters}
-                onShowToast={showToast}
-                onToggleSave={handleToggleSave}
-              />
+            {/* VIEW 0: HOME PAGE (全新主页 - 保留置顶搜索框，陈列本周更新的文章、学者、活动与期刊) */}
+            {visitedTabs.has('home') && (
+              <div className={activeTab === 'home' ? 'block' : 'hidden'}>
+                <Home
+                  articles={articles}
+                  events={events}
+                  journals={journals}
+                  authors={authors}
+                  wishlists={wishlist}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  selectedTag={selectedTag}
+                  setSelectedTag={setSelectedTag}
+                  selectedJurisdiction={selectedJurisdiction}
+                  setSelectedJurisdiction={setSelectedJurisdiction}
+                  onFilterByJournal={handleFilterByJournal}
+                  onViewAuthorPapers={handleViewAuthorPapers}
+                  onViewPaperInFeed={handleViewPaperInFeed}
+                  onNavigateToTab={setActiveTab}
+                  onResetFilters={handleResetFilters}
+                  onShowToast={showToast}
+                  onToggleSave={handleToggleSave}
+                />
+              </div>
             )}
 
             {/* VIEW 1: PAPERS FEED (文献流 - 支持期刊、卷Vol、期Issue级联下拉过滤、学者过滤、个人书签与标准分页) */}
-            {activeTab === 'papers' && (
-              <PapersFeed
-                journals={journals}
-                filterAuthor={filterAuthor}
-                filterJournal={filterJournal}
-                filterVolume={filterVolume}
-                filterIssue={filterIssue}
-                filterPaperTitle={filterPaperTitle}
-                onClearAuthorFilter={() => setFilterAuthor(null)}
-                onClearJournalFilter={() => {
-                  setFilterJournal(null);
-                  setFilterVolume(null);
-                  setFilterIssue(null);
-                }}
-                onClearVolumeFilter={() => {
-                  setFilterVolume(null);
-                  setFilterIssue(null);
-                }}
-                onClearIssueFilter={() => setFilterIssue(null)}
-                onClearPaperTitleFilter={() => setFilterPaperTitle(null)}
-                onSelectAuthor={(authorName) => setFilterAuthor(authorName)}
-                onSelectJournal={(journalName) => {
-                  setFilterJournal(journalName);
-                  setFilterVolume(null);
-                  setFilterIssue(null);
-                }}
-                onSelectVolume={(vol) => {
-                  setFilterVolume(vol);
-                  setFilterIssue(null);
-                }}
-                onSelectIssue={(iss) => setFilterIssue(iss)}
-                onShowToast={showToast}
-              />
+            {visitedTabs.has('papers') && (
+              <div className={activeTab === 'papers' ? 'block' : 'hidden'}>
+                <PapersFeed
+                  journals={journals}
+                  filterAuthor={filterAuthor}
+                  filterJournal={filterJournal}
+                  filterVolume={filterVolume}
+                  filterIssue={filterIssue}
+                  filterPaperTitle={filterPaperTitle}
+                  onClearAuthorFilter={() => setFilterAuthor(null)}
+                  onClearJournalFilter={() => {
+                    setFilterJournal(null);
+                    setFilterVolume(null);
+                    setFilterIssue(null);
+                  }}
+                  onClearVolumeFilter={() => {
+                    setFilterVolume(null);
+                    setFilterIssue(null);
+                  }}
+                  onClearIssueFilter={() => setFilterIssue(null)}
+                  onClearPaperTitleFilter={() => setFilterPaperTitle(null)}
+                  onSelectAuthor={(authorName) => setFilterAuthor(authorName)}
+                  onSelectJournal={(journalName) => {
+                    setFilterJournal(journalName);
+                    setFilterVolume(null);
+                    setFilterIssue(null);
+                  }}
+                  onSelectVolume={(vol) => {
+                    setFilterVolume(vol);
+                    setFilterIssue(null);
+                  }}
+                  onSelectIssue={(iss) => setFilterIssue(iss)}
+                  onShowToast={showToast}
+                />
+              </div>
             )}
 
             {/* VIEW 2: AUTHORS DIRECTORY (学者画像库 - 支持搜索、关注与分页) */}
-            {activeTab === 'authors' && (
-              <Authors
-                onSelectPaper={() => setActiveTab('papers')}
-                onViewAuthorPapers={handleViewAuthorPapers}
-                onShowToast={showToast}
-              />
+            {visitedTabs.has('authors') && (
+              <div className={activeTab === 'authors' ? 'block' : 'hidden'}>
+                <Authors
+                  onSelectPaper={() => setActiveTab('papers')}
+                  onViewAuthorPapers={handleViewAuthorPapers}
+                  onShowToast={showToast}
+                />
+              </div>
             )}
 
             {/* VIEW 3: JOURNALS SHELF (核心期刊架 - 独立后端查询、置顶与分页) */}
-            {activeTab === 'journals' && (
-              <Journals
-                onFilterByJournal={handleFilterByJournal}
-                onShowToast={(msg, type) => {
-                  showToast(msg, type);
-                  refreshSummaryOnly();
-                }}
-              />
+            {visitedTabs.has('journals') && (
+              <div className={activeTab === 'journals' ? 'block' : 'hidden'}>
+                <Journals
+                  onFilterByJournal={handleFilterByJournal}
+                  onShowToast={(msg, type) => {
+                    showToast(msg, type);
+                    refreshSummaryOnly();
+                  }}
+                />
+              </div>
             )}
 
             {/* VIEW 4: EVENTS & DEADLINES (活动与征稿) */}
-            {activeTab === 'events' && (
-              <Events
-                events={events}
-                onShowToast={(msg, type) => showToast(msg, type)}
-              />
+            {visitedTabs.has('events') && (
+              <div className={activeTab === 'events' ? 'block' : 'hidden'}>
+                <Events
+                  events={events}
+                  onShowToast={(msg, type) => showToast(msg, type)}
+                />
+              </div>
             )}
 
             {/* VIEW 5: BOOKMARKS & BIBTEX EXPORT (个人收藏夹 - 纯前端 BibTeX 导出) */}
-            {(activeTab === 'bookmarks' || activeTab === 'saved') && (
-              <Bookmarks
-                onShowToast={(msg, type) => {
-                  showToast(msg, type);
-                  refreshSummaryOnly();
-                }}
-                onNavigateToFeed={() => setActiveTab('papers')}
-              />
+            {(visitedTabs.has('bookmarks') || visitedTabs.has('saved')) && (
+              <div className={(activeTab === 'bookmarks' || activeTab === 'saved') ? 'block' : 'hidden'}>
+                <Bookmarks
+                  isActive={activeTab === 'bookmarks' || activeTab === 'saved'}
+                  onShowToast={(msg, type) => {
+                    showToast(msg, type);
+                    refreshSummaryOnly();
+                  }}
+                  onNavigateToFeed={() => setActiveTab('papers')}
+                />
+              </div>
             )}
 
             {/* VIEW 6: WISHLIST (收录心愿单 - 全员公开展示与投票) */}
-            {activeTab === 'wishlist' && (
-              <Wishlist
-                wishlist={wishlist}
-                onAddWishlistItem={handleAddWishlistItem}
-                onVoteWishlistItem={handleVoteWishlistItem}
-                isLoading={isLoading}
-              />
+            {visitedTabs.has('wishlist') && (
+              <div className={activeTab === 'wishlist' ? 'block' : 'hidden'}>
+                <Wishlist
+                  wishlist={wishlist}
+                  onAddWishlistItem={handleAddWishlistItem}
+                  onVoteWishlistItem={handleVoteWishlistItem}
+                  isLoading={isLoading}
+                />
+              </div>
             )}
 
             {/* VIEW 7: LOGIN & AUTH (鉴权中心) */}

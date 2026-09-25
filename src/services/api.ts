@@ -207,7 +207,7 @@ export async function fetchPapers(
 }
 
 /**
- * 获取学者画像库列表 (支持分页)
+ * 获取学者画像库列表 (支持分页与客户端缓存)
  */
 export async function fetchAuthors(
   page = 1,
@@ -216,6 +216,7 @@ export async function fetchAuthors(
     search?: string;
     tag?: string;
     bookmarked?: boolean;
+    bypassCache?: boolean;
   }
 ): Promise<{ authors: Author[]; pagination: PaginationMeta }> {
   const params = new URLSearchParams();
@@ -229,6 +230,14 @@ export async function fetchAuthors(
   }
   if (options?.bookmarked) {
     params.set('bookmarked', 'true');
+  }
+
+  const cacheKey = `authors:${params.toString()}`;
+  if (!options?.bypassCache) {
+    const cached = API_CACHE.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
   }
 
   const res = await fetch(`${API_BASE}/authors?${params.toString()}`, {
@@ -251,7 +260,9 @@ export async function fetchAuthors(
     hasPrev: false,
   };
 
-  return { authors, pagination };
+  const result = { authors, pagination };
+  API_CACHE.set(cacheKey, { data: result, timestamp: Date.now() });
+  return result;
 }
 
 /**
@@ -302,6 +313,7 @@ export async function toggleBookmark(
   clearApiCache('summary');
   clearApiCache('bookmarks');
   clearApiCache('papers');
+  clearApiCache('authors');
 
   return await res.json();
 }
