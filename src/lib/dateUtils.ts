@@ -3,16 +3,60 @@
  */
 
 // Target anchor reference time (aligned with current context or runtime)
-export function getRemainingTime(deadlineStr: string): {
+export function getRemainingTime(deadlineStr?: string | null): {
   days: number;
   hours: number;
   isUrgent: boolean;
   isExpired: boolean;
+  isTbd?: boolean;
   text: string;
 } {
-  const target = new Date(deadlineStr + 'T23:59:59').getTime();
+  if (!deadlineStr || typeof deadlineStr !== 'string') {
+    return {
+      days: 999,
+      hours: 0,
+      isUrgent: false,
+      isExpired: false,
+      isTbd: true,
+      text: '时间未定',
+    };
+  }
+
+  const clean = deadlineStr.trim().toLowerCase();
+  if (
+    clean === 'tbd' ||
+    clean === '待定' ||
+    clean === '未定' ||
+    clean.includes('rolling') ||
+    clean.includes('常年') ||
+    clean.includes('滚动')
+  ) {
+    return {
+      days: 999,
+      hours: 0,
+      isUrgent: false,
+      isExpired: false,
+      isTbd: true,
+      text: clean.includes('rolling') || clean.includes('滚动') ? '常年开放' : '时间未定',
+    };
+  }
+
+  // Handle format like YYYY-MM-DD or YYYY-MM-DD HH:mm:ss
+  const isoDate = deadlineStr.includes('T') ? deadlineStr : (deadlineStr.split(' ')[0] + 'T23:59:59');
+  const target = new Date(isoDate).getTime();
+
+  if (isNaN(target)) {
+    return {
+      days: 999,
+      hours: 0,
+      isUrgent: false,
+      isExpired: false,
+      isTbd: true,
+      text: '时间未定',
+    };
+  }
+
   const now = Date.now();
-  
   const diff = target - now;
 
   if (diff <= 0) {
@@ -21,7 +65,8 @@ export function getRemainingTime(deadlineStr: string): {
       hours: 0,
       isUrgent: false,
       isExpired: true,
-      text: '已截止'
+      isTbd: false,
+      text: '已截止',
     };
   }
 
@@ -44,7 +89,8 @@ export function getRemainingTime(deadlineStr: string): {
     hours,
     isUrgent,
     isExpired: false,
-    text
+    isTbd: false,
+    text,
   };
 }
 

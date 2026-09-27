@@ -192,11 +192,7 @@ export const Bookmarks: React.FC<BookmarksProps> = ({
       {/* Header Banner */}
       <div className="apple-card rounded-2xl sm:rounded-[24px] p-6 sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
-              <Bookmark className="w-3.5 h-3.5" />
-              <span>Personal Archive ({user?.username})</span>
-            </div>
+          <div className="space-y-1.5">
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               学者个人收藏夹与引证导出 (Bookmarks)
             </h1>

@@ -135,11 +135,7 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
       {/* Top Banner with KPIs */}
       <div className="apple-card rounded-2xl sm:rounded-[24px] p-6 sm:p-8">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2.5 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 text-[#0071E3] text-[11px] font-medium tracking-tight">
-              <CalendarClock className="w-3.5 h-3.5" />
-              <span>Academic Intelligence & Deadlines</span>
-            </div>
+          <div className="space-y-1.5 max-w-2xl">
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               法学学术征文、特刊与全球教职
             </h1>
@@ -340,7 +336,12 @@ export const Events: React.FC<EventsProps> = ({ events, onShowToast }) => {
 
                   {/* Countdown Badge */}
                   <div>
-                    {countdown.isUrgent || evt.isUrgent ? (
+                    {countdown.isTbd || evt.deadlineType === 'tbd' || evt.deadline === 'TBD' ? (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 bg-[#F5F5F7] text-[#6E6E73] rounded-full border border-black/[0.04]">
+                        <Clock className="w-3 h-3 text-[#86868B]" />
+                        <span>{evt.deadlineDisplay || countdown.text || '时间未定 (TBD)'}</span>
+                      </span>
+                    ) : countdown.isUrgent || evt.isUrgent ? (
                       <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 bg-[#FF3B30]/10 text-[#FF3B30] rounded-full">
                         <AlertCircle className="w-3.5 h-3.5 text-[#FF3B30] animate-pulse" />
                         <span>{countdown.text}</span>

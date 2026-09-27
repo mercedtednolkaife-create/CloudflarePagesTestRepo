@@ -248,11 +248,7 @@ export const JournalShelf: React.FC<JournalShelfProps> = ({
       {/* Header Banner (Apple-style frosted card) */}
       <div className="apple-card p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="max-w-3xl space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold tracking-wide">
-              <Layers className="w-3.5 h-3.5" />
-              <span>Curated Core Law Reviews · 国际核心法评总览</span>
-            </div>
+          <div className="max-w-3xl space-y-1.5">
             <h1 className="font-editorial-heading text-2xl sm:text-3xl font-bold tracking-tight text-[#1D1D1F]">
               域外法学核心期刊架 (Journal Shelf)
             </h1>

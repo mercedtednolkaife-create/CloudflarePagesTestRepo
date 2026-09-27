@@ -83,14 +83,9 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               LG
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-editorial-heading font-black text-lg text-[#1D1D1F] tracking-tight">
-                  Law<span className="text-[#0071E3]">Global</span>
-                </span>
-                <span className="text-[10px] font-sans font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/[0.04] text-[#6E6E73] border border-black/[0.04]">
-                  全球学术情报版
-                </span>
-              </div>
+              <span className="font-editorial-heading font-black text-lg text-[#1D1D1F] tracking-tight">
+                Law<span className="text-[#0071E3]">Global</span>
+              </span>
               <p className="text-[10px] font-sans tracking-tight text-[#86868B] hidden md:block">
                 Repository of Global Jurisprudence
               </p>

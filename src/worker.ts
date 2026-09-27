@@ -923,12 +923,33 @@ export default {
 
         let formatted = (results || []).map((row) => {
           const deadlineDate = row.submission_deadline || row.deadline;
+          const isTbd = !deadlineDate ||
+            deadlineDate.trim().toUpperCase() === 'TBD' ||
+            deadlineDate.includes('待定') ||
+            row.deadline_type === 'tbd' ||
+            row.deadline_type === 'rolling';
+
           const now = new Date();
-          const target = deadlineDate ? new Date(`${deadlineDate.split(' ')[0]}T23:59:59`) : null;
+          let target: Date | null = null;
+          if (!isTbd && deadlineDate) {
+            const parsed = new Date(`${deadlineDate.split(' ')[0]}T23:59:59`);
+            if (!isNaN(parsed.getTime())) {
+              target = parsed;
+            }
+          }
+
           const diffMs = target ? target.getTime() - now.getTime() : 0;
           const diffDays = target ? Math.ceil(diffMs / (1000 * 60 * 60 * 24)) : 999;
-          const isUrgent = diffDays >= 0 && diffDays <= 7;
-          const isExpired = diffDays < 0;
+          const isUrgent = !isTbd && diffDays >= 0 && diffDays <= 7;
+          const isExpired = !isTbd && diffDays < 0;
+
+          const statusText = isTbd
+            ? (row.deadline_display || '时间未定 (TBD)')
+            : isExpired
+            ? '已截止'
+            : diffDays === 0
+            ? '今日截止'
+            : `剩余 ${diffDays} 天`;
 
           return {
             id: row.id,
@@ -965,10 +986,10 @@ export default {
             submissionUrl: row.submission_url || null,
             feeInfo: row.fee_info || null,
             isPinned: Boolean(row.is_pinned),
-            daysRemaining: diffDays,
+            daysRemaining: isTbd ? 999 : diffDays,
             isUrgent,
             isExpired,
-            statusText: isExpired ? '已截止' : diffDays === 0 ? '今日截止' : `剩余 ${diffDays} 天`,
+            statusText,
           };
         });
 

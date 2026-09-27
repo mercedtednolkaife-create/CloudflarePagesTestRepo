@@ -249,22 +249,37 @@ export const Home: React.FC<HomeProps> = ({
   }, [articles, searchQuery, selectedTag, selectedJurisdiction]);
 
   const filteredAuthors = useMemo(() => {
-    if (!searchQuery.trim() && selectedTag === '全部领域') return authors;
+    if (!searchQuery.trim() && selectedTag === '全部领域' && selectedJurisdiction === 'All') return authors;
     const q = searchQuery.toLowerCase().trim();
     return authors.filter((a) => {
       const matchesQuery =
         !q ||
         a.name.toLowerCase().includes(q) ||
+        (a.nameCn && a.nameCn.toLowerCase().includes(q)) ||
         (a.institution?.name || '').toLowerCase().includes(q) ||
         (a.ssrnId || '').toLowerCase().includes(q);
 
       const matchesTag =
         selectedTag === '全部领域' ||
-        (a.tags && a.tags.some((t) => t.includes(selectedTag) || selectedTag.includes(t)));
+        (a.tags && a.tags.some((t) => t.includes(selectedTag) || selectedTag.includes(t))) ||
+        (a.tagsCn && a.tagsCn.some((t) => t.includes(selectedTag) || selectedTag.includes(t)));
 
-      return matchesQuery && matchesTag;
+      const authorCountry = (a.institution?.country || '').toUpperCase();
+      const instName = (a.institution?.name || '').toLowerCase();
+      const authorTags = (a.tags || []).concat(a.tagsCn || []);
+
+      const matchesJurisdiction =
+        selectedJurisdiction === 'All' ||
+        (selectedJurisdiction === 'US' && (authorCountry === 'US' || !authorCountry || instName.includes('harvard') || instName.includes('yale') || instName.includes('stanford') || instName.includes('columbia') || instName.includes('chicago') || instName.includes('nyu'))) ||
+        (selectedJurisdiction === 'UK' && (authorCountry === 'UK' || instName.includes('oxford') || instName.includes('cambridge') || instName.includes('london') || authorTags.some(t => t.includes('普通法') || t.includes('英美法')))) ||
+        (selectedJurisdiction === 'EU' && (authorCountry === 'EU' || authorCountry === 'DE' || authorCountry === 'FR' || instName.includes('european') || authorTags.some(t => t.includes('欧盟') || t.includes('欧洲')))) ||
+        (selectedJurisdiction === 'DE' && (authorCountry === 'DE' || instName.includes('germany') || instName.includes('munich') || instName.includes('heidelberg') || authorTags.some(t => t.includes('德国')))) ||
+        (selectedJurisdiction === 'FR' && (authorCountry === 'FR' || instName.includes('france') || instName.includes('paris') || authorTags.some(t => t.includes('法国')))) ||
+        (selectedJurisdiction === 'International' && (authorCountry === 'INTERNATIONAL' || authorCountry === 'INTL' || authorTags.some(t => t.includes('国际法') || t.includes('国际公法'))));
+
+      return matchesQuery && matchesTag && matchesJurisdiction;
     });
-  }, [authors, searchQuery, selectedTag]);
+  }, [authors, searchQuery, selectedTag, selectedJurisdiction]);
 
   const filteredJournals = useMemo(() => {
     if (!searchQuery.trim() && selectedTag === '全部领域' && selectedJurisdiction === 'All')
@@ -286,22 +301,37 @@ export const Home: React.FC<HomeProps> = ({
   }, [journals, searchQuery, selectedTag, selectedJurisdiction]);
 
   const filteredEvents = useMemo(() => {
-    if (!searchQuery.trim() && selectedTag === '全部领域') return events;
+    if (!searchQuery.trim() && selectedTag === '全部领域' && selectedJurisdiction === 'All') return events;
     const q = searchQuery.toLowerCase().trim();
     return events.filter((e) => {
       const matchesQuery =
         !q ||
         e.title.toLowerCase().includes(q) ||
+        (e.titleCn && e.titleCn.toLowerCase().includes(q)) ||
         e.host.toLowerCase().includes(q) ||
+        (e.location && e.location.toLowerCase().includes(q)) ||
         (e.tags || []).some((t) => t.toLowerCase().includes(q));
 
       const matchesTag =
         selectedTag === '全部领域' ||
         (e.tags && e.tags.some((t) => t.includes(selectedTag) || selectedTag.includes(t)));
 
-      return matchesQuery && matchesTag;
+      const loc = (e.location || '').toLowerCase();
+      const host = (e.host || '').toLowerCase();
+      const eventTags = e.tags || [];
+
+      const matchesJurisdiction =
+        selectedJurisdiction === 'All' ||
+        (selectedJurisdiction === 'US' && (loc.includes('usa') || loc.includes('us') || loc.includes('united states') || loc.includes('america') || host.includes('harvard') || host.includes('yale') || host.includes('stanford') || host.includes('columbia') || host.includes('chicago') || host.includes('nyu') || loc.includes('cambridge, ma') || loc.includes('new haven'))) ||
+        (selectedJurisdiction === 'UK' && (loc.includes('uk') || loc.includes('oxford') || loc.includes('cambridge, uk') || loc.includes('london') || host.includes('oxford') || host.includes('cambridge') || eventTags.some(t => t.includes('普通法') || t.includes('牛津') || t.includes('剑桥')))) ||
+        (selectedJurisdiction === 'EU' && (loc.includes('europe') || loc.includes('eu') || loc.includes('germany') || loc.includes('france') || eventTags.some(t => t.includes('欧盟') || t.includes('欧洲')))) ||
+        (selectedJurisdiction === 'DE' && (loc.includes('germany') || loc.includes('deutschland') || loc.includes('德国') || host.includes('germany'))) ||
+        (selectedJurisdiction === 'FR' && (loc.includes('france') || loc.includes('法国') || host.includes('france') || host.includes('paris'))) ||
+        (selectedJurisdiction === 'International' && (loc.includes('hybrid') || loc.includes('intl') || loc.includes('国际') || e.type.includes('国际')));
+
+      return matchesQuery && matchesTag && matchesJurisdiction;
     });
-  }, [events, searchQuery, selectedTag]);
+  }, [events, searchQuery, selectedTag, selectedJurisdiction]);
 
   const filteredWishlists = useMemo(() => {
     if (!searchQuery.trim()) return wishlists;
@@ -453,50 +483,97 @@ export const Home: React.FC<HomeProps> = ({
     return updates;
   }, [bookmarkedAuthors, articles]);
 
-  // Upcoming Events (next 14 days or sort by deadline)
+  // Upcoming Events (filtered by jurisdiction if selected, sorted by deadline)
   const upcomingEvents = useMemo(() => {
     return [...events]
-      .filter((e) => new Date(e.deadline).getTime() >= new Date().setHours(0, 0, 0, 0))
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime())
+      .filter((e) => {
+        const notExpired = !e.deadline || e.deadline === 'TBD' || new Date(e.deadline).getTime() >= new Date().setHours(0, 0, 0, 0);
+        if (!notExpired) return false;
+
+        const loc = (e.location || '').toLowerCase();
+        const host = (e.host || '').toLowerCase();
+        const eventTags = e.tags || [];
+
+        const matchesJurisdiction =
+          selectedJurisdiction === 'All' ||
+          (selectedJurisdiction === 'US' && (loc.includes('usa') || loc.includes('us') || loc.includes('united states') || loc.includes('america') || host.includes('harvard') || host.includes('yale') || host.includes('stanford') || host.includes('columbia') || host.includes('chicago') || host.includes('nyu') || loc.includes('cambridge, ma') || loc.includes('new haven'))) ||
+          (selectedJurisdiction === 'UK' && (loc.includes('uk') || loc.includes('oxford') || loc.includes('cambridge, uk') || loc.includes('london') || host.includes('oxford') || host.includes('cambridge') || eventTags.some(t => t.includes('普通法') || t.includes('牛津') || t.includes('剑桥')))) ||
+          (selectedJurisdiction === 'EU' && (loc.includes('europe') || loc.includes('eu') || loc.includes('germany') || loc.includes('france') || eventTags.some(t => t.includes('欧盟') || t.includes('欧洲')))) ||
+          (selectedJurisdiction === 'DE' && (loc.includes('germany') || loc.includes('deutschland') || loc.includes('德国') || host.includes('germany'))) ||
+          (selectedJurisdiction === 'FR' && (loc.includes('france') || loc.includes('法国') || host.includes('france') || host.includes('paris'))) ||
+          (selectedJurisdiction === 'International' && (loc.includes('hybrid') || loc.includes('intl') || loc.includes('国际') || e.type.includes('国际')));
+
+        return matchesJurisdiction;
+      })
+      .sort((a, b) => {
+        if (!a.deadline || a.deadline === 'TBD') return 1;
+        if (!b.deadline || b.deadline === 'TBD') return -1;
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+      })
       .slice(0, 4);
-  }, [events]);
+  }, [events, selectedJurisdiction]);
 
   // Pinned/Featured Journals with latest issue updated this week
   const featuredJournals = useMemo(() => {
-    return journals.map((j) => {
-      const matchingArticles = articles.filter(
-        (a) =>
-          a.journalName.toLowerCase() === j.nameOriginal.toLowerCase() ||
-          (a.journalAbbr && j.abbreviation && a.journalAbbr.toLowerCase() === j.abbreviation.toLowerCase())
-      );
-      const updatedIssue = matchingArticles[0]?.volumeIssue || j.currentIssue || '最新卷期';
-      return {
-        ...j,
-        updatedIssue,
-        hasWeeklyUpdate: matchingArticles.length > 0,
-        weeklyCount: matchingArticles.length,
-      };
-    })
-    .sort((a, b) => {
-      if (a.hasWeeklyUpdate && !b.hasWeeklyUpdate) return -1;
-      if (!a.hasWeeklyUpdate && b.hasWeeklyUpdate) return 1;
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return 0;
-    })
-    .slice(0, 5);
-  }, [journals, articles]);
+    return journals
+      .filter((j) => selectedJurisdiction === 'All' || j.jurisdiction === selectedJurisdiction)
+      .map((j) => {
+        const matchingArticles = articles.filter(
+          (a) =>
+            a.journalName.toLowerCase() === j.nameOriginal.toLowerCase() ||
+            (a.journalAbbr && j.abbreviation && a.journalAbbr.toLowerCase() === j.abbreviation.toLowerCase())
+        );
+        const updatedIssue = matchingArticles[0]?.volumeIssue || j.currentIssue || '最新卷期';
+        return {
+          ...j,
+          updatedIssue,
+          hasWeeklyUpdate: matchingArticles.length > 0,
+          weeklyCount: matchingArticles.length,
+        };
+      })
+      .sort((a, b) => {
+        if (a.hasWeeklyUpdate && !b.hasWeeklyUpdate) return -1;
+        if (!a.hasWeeklyUpdate && b.hasWeeklyUpdate) return 1;
+        if (a.isPinned && !b.isPinned) return -1;
+        if (!a.isPinned && b.isPinned) return 1;
+        return 0;
+      })
+      .slice(0, 5);
+  }, [journals, articles, selectedJurisdiction]);
 
-  // Recent Scholar Highlights (动态关联最新发表学术论文的学者画像)
+  // Recent Scholar Highlights (动态关联最新发表学术论文的学者画像，支持法域筛选)
   const recentAuthors = useMemo(() => {
     if (!authors || authors.length === 0) return [];
-    if (!articles || articles.length === 0) return authors.slice(0, 4);
 
-    // 1. 从最新文献流中提取著者名字
+    // 先依据当前选定法域过滤学者候选池
+    const jurisdictionAuthors = authors.filter((a) => {
+      if (selectedJurisdiction === 'All') return true;
+      const authorCountry = (a.institution?.country || '').toUpperCase();
+      const instName = (a.institution?.name || '').toLowerCase();
+      const authorTags = (a.tags || []).concat(a.tagsCn || []);
+
+      return (
+        (selectedJurisdiction === 'US' && (authorCountry === 'US' || !authorCountry || instName.includes('harvard') || instName.includes('yale') || instName.includes('stanford') || instName.includes('columbia') || instName.includes('chicago') || instName.includes('nyu'))) ||
+        (selectedJurisdiction === 'UK' && (authorCountry === 'UK' || instName.includes('oxford') || instName.includes('cambridge') || instName.includes('london') || authorTags.some(t => t.includes('普通法') || t.includes('英美法')))) ||
+        (selectedJurisdiction === 'EU' && (authorCountry === 'EU' || authorCountry === 'DE' || authorCountry === 'FR' || instName.includes('european') || authorTags.some(t => t.includes('欧盟') || t.includes('欧洲')))) ||
+        (selectedJurisdiction === 'DE' && (authorCountry === 'DE' || instName.includes('germany') || instName.includes('munich') || instName.includes('heidelberg') || authorTags.some(t => t.includes('德国')))) ||
+        (selectedJurisdiction === 'FR' && (authorCountry === 'FR' || instName.includes('france') || instName.includes('paris') || authorTags.some(t => t.includes('法国')))) ||
+        (selectedJurisdiction === 'International' && (authorCountry === 'INTERNATIONAL' || authorCountry === 'INTL' || authorTags.some(t => t.includes('国际法') || t.includes('国际公法'))))
+      );
+    });
+
+    if (jurisdictionAuthors.length === 0) return [];
+    if (!articles || articles.length === 0) return jurisdictionAuthors.slice(0, 4);
+
+    // 1. 从符合法域的文献流中提取著者名字
+    const jurisdictionArticles = articles.filter(
+      (art) => selectedJurisdiction === 'All' || art.jurisdiction === selectedJurisdiction
+    );
+
     const recentAuthorNames: string[] = [];
     const seenNames = new Set<string>();
 
-    for (const art of articles) {
+    for (const art of jurisdictionArticles) {
       if (art.authors && Array.isArray(art.authors)) {
         for (const auth of art.authors) {
           const rawName = typeof auth === 'string' ? auth : ((auth as any)?.name || (auth as any)?.nameCn || '');
@@ -509,13 +586,13 @@ export const Home: React.FC<HomeProps> = ({
       }
     }
 
-    // 2. 将文献著者与 authors 知识图谱数据库进行高精度匹配
+    // 2. 将文献著者与候选学者进行高精度匹配
     const matchedAuthors: Author[] = [];
     const matchedIds = new Set<string>();
 
     for (const name of recentAuthorNames) {
       const lower = name.toLowerCase();
-      const found = authors.find((a) => {
+      const found = jurisdictionAuthors.find((a) => {
         const aLower = a.name.toLowerCase();
         const aCnLower = a.nameCn ? a.nameCn.toLowerCase() : '';
         return aLower === lower || aLower.includes(lower) || lower.includes(aLower) || (aCnLower && aCnLower === lower);
@@ -528,9 +605,9 @@ export const Home: React.FC<HomeProps> = ({
       }
     }
 
-    // 3. 若当期论文著者未在画像库建档或不足 4 位，则由全库代表学者优雅补齐
+    // 3. 若当期论文著者未在画像库建档或不足 4 位，则由该法域代表学者优雅补齐
     if (matchedAuthors.length < 4) {
-      for (const a of authors) {
+      for (const a of jurisdictionAuthors) {
         if (!matchedIds.has(a.id)) {
           matchedIds.add(a.id);
           matchedAuthors.push(a);
@@ -540,18 +617,14 @@ export const Home: React.FC<HomeProps> = ({
     }
 
     return matchedAuthors.slice(0, 4);
-  }, [authors, articles]);
+  }, [authors, articles, selectedJurisdiction]);
 
   return (
     <div className="space-y-6 font-sans">
       {/* 1. TOP PROMINENT SEARCH HERO (Apple Spotlight 聚光灯式检索) */}
       <section className="apple-card p-6 sm:p-8 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/8 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold tracking-wide">
-              <Sparkles className="w-3.5 h-3.5 text-[#0071E3]" />
-              <span>LawGlobal Knowledge Engine · 全网法学图谱检索</span>
-            </div>
+          <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               域外法学前沿检索与动态 (Jurisprudence Hub)
             </h1>

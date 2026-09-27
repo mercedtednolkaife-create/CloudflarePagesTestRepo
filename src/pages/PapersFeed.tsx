@@ -484,11 +484,7 @@ export const PapersFeed: React.FC<PapersFeedProps> = ({
       {/* Top Banner (Apple-style frosted card) */}
       <div className="bg-white rounded-2xl sm:rounded-[22px] p-6 sm:p-8 border border-black/[0.06] shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Global Literature Pipeline · 全球法学前沿索引</span>
-            </div>
+          <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               域外法学文献库 (Literature Library)
             </h1>

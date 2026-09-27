@@ -131,11 +131,7 @@ export const WishlistSection: React.FC<WishlistSectionProps> = ({
     <div className="space-y-6">
       {/* Top Banner */}
       <div className="apple-card rounded-2xl sm:rounded-[24px] p-6 sm:p-8">
-        <div className="max-w-3xl space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
-            <HeartHandshake className="w-3.5 h-3.5" />
-            <span>收录提议与文献催更</span>
-          </div>
+        <div className="max-w-3xl space-y-1.5">
           <h2 className="font-editorial-heading font-bold text-2xl sm:text-3xl text-[#1D1D1F] tracking-tight">
             收录心愿单与文献数据需求反馈
           </h2>

@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Star,
   BookOpen,
+  BookOpenCheck,
   Search,
   RotateCcw,
   Loader2,
@@ -130,11 +131,7 @@ export const Authors: React.FC<AuthorsProps> = ({
       {/* Header Banner (Apple-style frosted card) */}
       <div className="apple-card rounded-2xl sm:rounded-[24px] p-6 sm:p-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0071E3]/10 border border-[#0071E3]/20 text-[#0071E3] text-[11px] font-semibold">
-              <Users className="w-3.5 h-3.5" />
-              <span>Scholar Directory & Academic Graph</span>
-            </div>
+          <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl font-bold font-editorial-heading text-[#1D1D1F] tracking-tight">
               域外法学学者画像库 (Authors)
             </h1>
@@ -388,6 +385,37 @@ export const Authors: React.FC<AuthorsProps> = ({
                           </div>
                         </div>
                       )}
+                    </div>
+                    {/* Card Footer Actions (与核心期刊架查看收录功能保持一致规范) */}
+                    <div className="mt-5 pt-3.5 border-t border-black/[0.04] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[11px] text-[#86868B]">
+                        <BookOpen className="w-3.5 h-3.5 text-[#86868B]" />
+                        <span>{author.institution?.country ? `${author.institution.country} 法学研究` : '法学代表论著'}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {onViewAuthorPapers && (
+                          <button
+                            onClick={() => onViewAuthorPapers(author.name)}
+                            className="px-3.5 py-1.5 bg-white hover:bg-[#0071E3] text-[#1D1D1F] hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border border-black/[0.06] shadow-2xs hover:border-transparent active:scale-95"
+                            title={`在核心文献库中查看学者【${author.name}】的全部收录论文`}
+                          >
+                            <BookOpenCheck className="w-3.5 h-3.5" />
+                            <span>查看收录</span>
+                          </button>
+                        )}
+                        {author.profileUrl && (
+                          <a
+                            href={author.profileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-[#86868B] hover:text-[#1D1D1F] hover:bg-black/[0.04] rounded-lg transition-colors cursor-pointer"
+                            title="访问学者教职主页"
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ShieldCheck, UserCheck, KeyRound, Lock, User, AlertCircle, Sparkles, LogIn, UserPlus } from 'lucide-react';
+import { UserCheck, KeyRound, Lock, User, AlertCircle, ShieldCheck } from 'lucide-react';
 
 interface LoginProps {
   onSuccess?: () => void;
@@ -49,37 +49,6 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleQuickLogin = async (userType: 'admin' | 'scholar' | 'user') => {
-    setLoading(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    let u = 'admin';
-    let p = 'admin123';
-    if (userType === 'scholar') {
-      u = 'scholar';
-      p = 'user123';
-    } else if (userType === 'user') {
-      u = 'demo_user';
-      p = 'user123';
-    }
-
-    setUsername(u);
-    setPassword(p);
-
-    try {
-      await login(u, p);
-      setSuccessMessage(`已快捷登录为【${userType === 'admin' ? '系统管理员' : userType === 'scholar' ? '驻站学者' : '注册读者'}】`);
-      setTimeout(() => {
-        if (onSuccess) onSuccess();
-      }, 600);
-    } catch (err: any) {
-      setErrorMessage(err?.message || '快捷登录失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (isAuthenticated && user) {
     return (
       <div className="max-w-xl mx-auto my-12 bg-white rounded-2xl border border-zinc-200 p-8 shadow-sm text-center space-y-6">
@@ -103,10 +72,6 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
             <span className="font-semibold uppercase px-2 py-0.5 rounded bg-blue-100 text-[#0F52BA]">
               {user.role}
             </span>
-          </div>
-          <div className="flex justify-between py-1">
-            <span className="text-zinc-500">鉴权方式</span>
-            <span className="text-zinc-700">Web Crypto SHA-256 / JWT 安全凭据认证</span>
           </div>
         </div>
 
@@ -135,23 +100,11 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
       {/* Header */}
       <div className="text-center space-y-2">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-900 text-white mb-2 shadow-xs">
-          <KeyRound className="w-6 h-6 text-[#0F52BA]" />
+          <KeyRound className="w-6 h-6 text-[#0071E3]" />
         </div>
         <h2 className="text-2xl font-bold tracking-tight text-zinc-900 font-editorial-heading">
-          学者与管理员登录
+          {mode === 'login' ? '账号登录' : '创建账号'}
         </h2>
-        <p className="text-xs text-zinc-500">
-          学者通行证安全凭据认证 · 支持全文检索与私有书签同步
-        </p>
-      </div>
-
-      {/* Beta Access Notice */}
-      <div className="p-3 bg-blue-50/70 border border-blue-200/70 rounded-xl text-xs text-blue-900 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#0F52BA] shrink-0" />
-          <span className="font-medium">当前阶段仅限持证学者登录</span>
-        </div>
-        <span className="text-[11px] text-blue-600 bg-blue-100/70 px-2 py-0.5 rounded-md">统一签发</span>
       </div>
 
       {/* Alerts */}
@@ -173,7 +126,7 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-            用户名 / Academic ID
+            用户名
           </label>
           <div className="relative">
             <User className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -182,15 +135,15 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="请输入用户名 (如 admin / scholar)"
-              className="w-full pl-10 pr-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/20 focus:border-[#0F52BA]"
+              placeholder="请输入用户名"
+              className="w-full pl-10 pr-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3]"
             />
           </div>
         </div>
 
         <div>
           <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-            密码 / Passphrase
+            密码
           </label>
           <div className="relative">
             <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -199,8 +152,8 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="请输入登录密码"
-              className="w-full pl-10 pr-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/20 focus:border-[#0F52BA]"
+              placeholder="请输入密码"
+              className="w-full pl-10 pr-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3]"
             />
           </div>
         </div>
@@ -208,16 +161,16 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
         {mode === 'register' && (
           <div>
             <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-              身份角色 / Role
+              身份角色
             </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as any)}
-              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/20 focus:border-[#0F52BA]"
+              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3]"
             >
-              <option value="user">注册读者 (General Reader)</option>
-              <option value="scholar">青年学者 (Academic Scholar)</option>
-              <option value="admin">系统管理员 (Administrator)</option>
+              <option value="user">读者用户</option>
+              <option value="scholar">青年学者</option>
+              <option value="admin">管理员</option>
             </select>
           </div>
         )}
@@ -225,45 +178,25 @@ export const Login: React.FC<LoginProps> = ({ onSuccess }) => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 px-4 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-[#0F52BA] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+          className="w-full py-2.5 px-4 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-[#0071E3] transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
         >
           {loading ? '正在验证身份...' : mode === 'login' ? '立即登录' : '立即注册'}
         </button>
-      </form>
 
-      {/* Fast Demo Login Buttons */}
-      <div className="pt-4 border-t border-zinc-100 space-y-2.5">
-        <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-500">
-          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-          <span>一键预设账号快速联调体验：</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="text-center pt-2">
           <button
             type="button"
-            onClick={() => handleQuickLogin('admin')}
-            className="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-[11px] font-medium transition-colors cursor-pointer truncate text-center"
-            title="admin / admin123"
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              setErrorMessage(null);
+              setSuccessMessage(null);
+            }}
+            className="text-xs text-[#0071E3] hover:underline cursor-pointer font-medium"
           >
-            🛡️ 管理员 (admin)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleQuickLogin('scholar')}
-            className="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-[11px] font-medium transition-colors cursor-pointer truncate text-center"
-            title="scholar / user123"
-          >
-            🎓 学者 (scholar)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleQuickLogin('user')}
-            className="px-2 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-[11px] font-medium transition-colors cursor-pointer truncate text-center"
-            title="demo_user / user123"
-          >
-            📖 读者 (demo)
+            {mode === 'login' ? '还没有账号？点击注册' : '已有账号？点击登录'}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 };
